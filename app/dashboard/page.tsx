@@ -29,6 +29,7 @@ function readStats(): DashboardStats {
   }
 
   const raw = window.localStorage.getItem(DASHBOARD_STORAGE_KEY);
+
   if (!raw) {
     return getDefaultStats();
   }
@@ -45,6 +46,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setStats(readStats());
+
+    function refreshStats() {
+      setStats(readStats());
+    }
+
+    window.addEventListener("storage", refreshStats);
+    window.addEventListener("focus", refreshStats);
+    window.addEventListener("pageshow", refreshStats);
+
+    return () => {
+      window.removeEventListener("storage", refreshStats);
+      window.removeEventListener("focus", refreshStats);
+      window.removeEventListener("pageshow", refreshStats);
+    };
   }, []);
 
   const lastProcessedLabel = stats.lastProcessedAt
@@ -60,8 +75,8 @@ export default function DashboardPage() {
           </Link>
           <h1 className="page-title">Dashboard</h1>
           <p className="muted">
-            This phase tracks simple local browser totals only. Supabase-backed
-            shop analytics comes next.
+            This phase tracks browser totals now. Shop-wide Supabase analytics
+            comes next.
           </p>
         </div>
 
@@ -69,6 +84,7 @@ export default function DashboardPage() {
           <Link href="/sanitize" className="primary-btn">
             Open sanitize
           </Link>
+
           <Link href="/review" className="secondary-btn">
             Open review
           </Link>
@@ -103,6 +119,7 @@ export default function DashboardPage() {
 
       <section className="panel" style={{ marginTop: 18 }}>
         <h2>What this phase proves</h2>
+
         <ul className="meta-list">
           <li>The upload and review workflow works in the browser</li>
           <li>The output PDF is rebuilt as a new image-only document</li>
@@ -111,9 +128,7 @@ export default function DashboardPage() {
           <li>The fee story is visible now, even before full shop analytics</li>
         </ul>
 
-        <div className="success-box">
-          Last processed: {lastProcessedLabel}
-        </div>
+        <div className="success-box">Last processed: {lastProcessedLabel}</div>
       </section>
     </main>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   PageRectsMap,
   NormalizedRect,
@@ -18,12 +18,13 @@ type PagePreview = {
   dataUrl: string;
 };
 
-type DraftRect = {
+type PointerDraft = {
+  pointerId: number;
   pageNumber: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
 } | null;
 
 function clamp01(value: number) {
@@ -43,7 +44,7 @@ function normalizeRect(
   const width = Math.abs(x2 - x1);
   const height = Math.abs(y2 - y1);
 
-  if (width < 0.01 || height < 0.01) {
+  if (width < 0.008 || height < 0.008) {
     return null;
   }
 
@@ -64,6 +65,27 @@ function getRectStyle(rect: NormalizedRect) {
   };
 }
 
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("The clean PDF could not be converted for review."));
+    };
+
+    reader.onerror = () => {
+      reject(new Error("The clean PDF could not be converted for review."));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function SanitizePage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
@@ -71,12 +93,7 @@ export default function SanitizePage() {
   const [pageCount, setPageCount] = useState(0);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [pageRectsMap, setPageRectsMap] = useState<PageRectsMap>({});
-  const [draftRect, setDraftRect] = useState<DraftRect>(null);
-  const [dragStart, setDragStart] = useState<{
-    pageNumber: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [pointerDraft, setPointerDraft] = useState<PointerDraft>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("Waiting");
@@ -87,17 +104,35 @@ export default function SanitizePage() {
     return Object.values(pageRectsMap).reduce((sum, rects) => sum + rects.length, 0);
   }, [pageRectsMap]);
 
-  useEffect(() => {
-    return () => {
-      Object.values(containerRefs.current).forEach(() => undefined);
+  const draftRect = useMemo(() => {
+    if (!pointerDraft) {
+      return null;
+    }
+
+    const normalized = normalizeRect(
+      pointerDraft.startX,
+      pointerDraft.startY,
+      pointerDraft.currentX,
+      pointerDraft.currentY
+    );
+
+    if (!normalized) {
+      return null;
+    }
+
+    return {
+      pageNumber: pointerDraft.pageNumber,
+      rect: normalized
     };
-  }, []);
+  }, [pointerDraft]);
 
   async function getPdfJs(): Promise<PdfJsModule> {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
     }
+
     return pdfjsLib;
   }
 
@@ -112,12 +147,11 @@ export default function SanitizePage() {
       const bytes = await selectedFile.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: bytes });
       const pdf = await loadingTask.promise;
-
       const previews: PagePreview[] = [];
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.2 });
+        const viewport = page.getViewport({ scale: 1.25 });
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
 
@@ -151,6 +185,7 @@ export default function SanitizePage() {
       setPageCount(pdf.numPages);
       setPagePreviews(previews);
       setPageRectsMap({});
+      setPointerDraft(null);
       setProgress(100);
       setProgressLabel("Preview ready");
     } catch (caughtError) {
@@ -158,6 +193,7 @@ export default function SanitizePage() {
         caughtError instanceof Error
           ? caughtError.message
           : "The PDF could not be loaded.";
+
       setError(message);
       setProgress(0);
       setProgressLabel("Failed");
@@ -187,118 +223,140 @@ export default function SanitizePage() {
 
   function getPointerPosition(
     pageNumber: number,
-    event: React.MouseEvent<HTMLDivElement>
+    clientX: number,
+    clientY: number
   ) {
     const container = containerRefs.current[pageNumber];
+
     if (!container) {
       return null;
     }
 
     const rect = container.getBoundingClientRect();
-    const x = clamp01((event.clientX - rect.left) / rect.width);
-    const y = clamp01((event.clientY - rect.top) / rect.height);
+    const x = clamp01((clientX - rect.left) / rect.width);
+    const y = clamp01((clientY - rect.top) / rect.height);
 
     return { x, y };
   }
 
-  function handleMouseDown(
+  function handlePointerDown(
     pageNumber: number,
-    event: React.MouseEvent<HTMLDivElement>
+    event: React.PointerEvent<HTMLDivElement>
   ) {
-    const point = getPointerPosition(pageNumber, event);
-    if (!point) return;
+    if (busy) {
+      return;
+    }
 
-    setDragStart({
-      pageNumber,
-      x: point.x,
-      y: point.y
-    });
+    const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
 
-    setDraftRect({
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    setPointerDraft({
+      pointerId: event.pointerId,
       pageNumber,
-      x: point.x,
-      y: point.y,
-      width: 0,
-      height: 0
+      startX: point.x,
+      startY: point.y,
+      currentX: point.x,
+      currentY: point.y
     });
   }
 
-  function handleMouseMove(
+  function handlePointerMove(
     pageNumber: number,
-    event: React.MouseEvent<HTMLDivElement>
+    event: React.PointerEvent<HTMLDivElement>
   ) {
-    if (!dragStart || dragStart.pageNumber !== pageNumber) {
-      return;
-    }
-
-    const point = getPointerPosition(pageNumber, event);
-    if (!point) return;
-
-    const nextRect = normalizeRect(
-      dragStart.x,
-      dragStart.y,
-      point.x,
-      point.y
-    );
-
-    if (!nextRect) {
-      setDraftRect({
-        pageNumber,
-        x: dragStart.x,
-        y: dragStart.y,
-        width: 0,
-        height: 0
-      });
-      return;
-    }
-
-    setDraftRect({
-      pageNumber,
-      ...nextRect
-    });
-  }
-
-  function finishDrag(pageNumber: number, event?: React.MouseEvent<HTMLDivElement>) {
-    if (!dragStart || dragStart.pageNumber !== pageNumber) {
-      return;
-    }
-
-    let finalRect: NormalizedRect | null = null;
-
-    if (event) {
-      const point = getPointerPosition(pageNumber, event);
-      if (point) {
-        finalRect = normalizeRect(dragStart.x, dragStart.y, point.x, point.y);
+    setPointerDraft((current) => {
+      if (!current) {
+        return current;
       }
-    }
 
-    if (!finalRect && draftRect && draftRect.pageNumber === pageNumber) {
-      finalRect = normalizeRect(
-        draftRect.x,
-        draftRect.y,
-        draftRect.x + draftRect.width,
-        draftRect.y + draftRect.height
-      );
-    }
+      if (current.pageNumber !== pageNumber || current.pointerId !== event.pointerId) {
+        return current;
+      }
 
-    if (finalRect) {
-      setPageRectsMap((current) => {
-        const existing = current[pageNumber] ?? [];
-        return {
-          ...current,
-          [pageNumber]: [...existing, finalRect as NormalizedRect]
+      const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
+
+      if (!point) {
+        return current;
+      }
+
+      return {
+        ...current,
+        currentX: point.x,
+        currentY: point.y
+      };
+    });
+  }
+
+  function finalizePointerDrag(
+    pageNumber: number,
+    pointerId: number,
+    clientX: number,
+    clientY: number
+  ) {
+    setPointerDraft((current) => {
+      if (!current) {
+        return null;
+      }
+
+      if (current.pageNumber !== pageNumber || current.pointerId !== pointerId) {
+        return current;
+      }
+
+      const point =
+        getPointerPosition(pageNumber, clientX, clientY) ?? {
+          x: current.currentX,
+          y: current.currentY
         };
-      });
-    }
 
-    setDragStart(null);
-    setDraftRect(null);
+      const finalRect = normalizeRect(
+        current.startX,
+        current.startY,
+        point.x,
+        point.y
+      );
+
+      if (finalRect) {
+        setPageRectsMap((existingMap) => {
+          const existingRects = existingMap[pageNumber] ?? [];
+
+          return {
+            ...existingMap,
+            [pageNumber]: [...existingRects, finalRect]
+          };
+        });
+      }
+
+      return null;
+    });
+  }
+
+  function handlePointerUp(
+    pageNumber: number,
+    event: React.PointerEvent<HTMLDivElement>
+  ) {
+    finalizePointerDrag(pageNumber, event.pointerId, event.clientX, event.clientY);
+  }
+
+  function handlePointerCancel(
+    pageNumber: number,
+    event: React.PointerEvent<HTMLDivElement>
+  ) {
+    finalizePointerDrag(pageNumber, event.pointerId, event.clientX, event.clientY);
   }
 
   function removeLastRect(pageNumber: number) {
     setPageRectsMap((current) => {
       const existing = current[pageNumber] ?? [];
-      if (existing.length === 0) return current;
+
+      if (existing.length === 0) {
+        return current;
+      }
 
       return {
         ...current,
@@ -338,7 +396,7 @@ export default function SanitizePage() {
         }
       });
 
-      const cleanPdfUrl = URL.createObjectURL(result.blob);
+      const cleanPdfDataUrl = await blobToDataUrl(result.blob);
 
       setReviewSession({
         originalFileName: file.name,
@@ -346,7 +404,7 @@ export default function SanitizePage() {
         hash: result.hash,
         pageCount: result.pageCount,
         redactionCount: result.redactionCount,
-        cleanPdfUrl,
+        cleanPdfDataUrl,
         createdAt: new Date().toISOString(),
         estimatedWitnessFeesFound: result.pageCount * 5
       });
@@ -354,13 +412,19 @@ export default function SanitizePage() {
       window.location.href = "/review";
     } catch (caughtError) {
       const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Sanitization failed.";
+        caughtError instanceof Error ? caughtError.message : "Sanitization failed.";
+
       setError(message);
       setBusy(false);
+      setProgressLabel("Failed");
     }
   }
+
+  const drawingStatus = pointerDraft
+    ? "Drawing box..."
+    : totalRedactions > 0
+      ? `${totalRedactions} box${totalRedactions === 1 ? "" : "es"} ready`
+      : "No boxes yet";
 
   return (
     <main className="shell">
@@ -388,6 +452,7 @@ export default function SanitizePage() {
 
       <section className="panel">
         <h2>1. Upload document</h2>
+
         <div className="upload-box">
           <input type="file" accept="application/pdf" onChange={onFileChange} />
           <div className="upload-hint">
@@ -421,10 +486,7 @@ export default function SanitizePage() {
         <div className="progress-wrap">
           <div className="status-line">{progressLabel}</div>
           <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
@@ -432,12 +494,20 @@ export default function SanitizePage() {
       </section>
 
       <section className="panel">
-        <h2>2. Draw redaction boxes</h2>
-        <p className="muted">
-          Click and drag on a page to mark private content. These blacked-out
-          regions will be burned into a new image-only PDF so the original text
-          layer is no longer recoverable from the output file.
-        </p>
+        <div className="section-head">
+          <div>
+            <h2>2. Draw redaction boxes</h2>
+            <p className="muted">
+              Click and drag on a page to mark private content. These blacked-out
+              regions will be burned into a new image-only PDF so the original text
+              layer is no longer recoverable from the output file.
+            </p>
+          </div>
+
+          <div className={`draw-status${pointerDraft ? " drawing" : ""}`}>
+            {drawingStatus}
+          </div>
+        </div>
 
         {pagePreviews.length === 0 ? (
           <div className="empty-state">
@@ -447,15 +517,16 @@ export default function SanitizePage() {
           <div className="page-stack">
             {pagePreviews.map((preview) => {
               const pageRects = pageRectsMap[preview.pageNumber] ?? [];
-              const isDraftPage = draftRect?.pageNumber === preview.pageNumber;
+              const previewDraft =
+                draftRect && draftRect.pageNumber === preview.pageNumber
+                  ? draftRect.rect
+                  : null;
 
               return (
                 <div className="page-canvas-wrap" key={preview.pageNumber}>
                   <div className="page-toolbar">
                     <div>
-                      <div className="page-number">
-                        Page {preview.pageNumber}
-                      </div>
+                      <div className="page-number">Page {preview.pageNumber}</div>
                       <div className="redaction-count">
                         {pageRects.length} redaction box
                         {pageRects.length === 1 ? "" : "es"}
@@ -470,6 +541,7 @@ export default function SanitizePage() {
                       >
                         Undo last box
                       </button>
+
                       <button
                         type="button"
                         className="danger-btn"
@@ -490,21 +562,22 @@ export default function SanitizePage() {
                       src={preview.dataUrl}
                       alt={`Preview page ${preview.pageNumber}`}
                       className="page-canvas"
+                      draggable={false}
                     />
 
                     <div
-                      className="rect-layer"
-                      onMouseDown={(event) =>
-                        handleMouseDown(preview.pageNumber, event)
+                      className={`rect-layer${pointerDraft ? " is-drawing" : ""}`}
+                      onPointerDown={(event) =>
+                        handlePointerDown(preview.pageNumber, event)
                       }
-                      onMouseMove={(event) =>
-                        handleMouseMove(preview.pageNumber, event)
+                      onPointerMove={(event) =>
+                        handlePointerMove(preview.pageNumber, event)
                       }
-                      onMouseUp={(event) =>
-                        finishDrag(preview.pageNumber, event)
+                      onPointerUp={(event) =>
+                        handlePointerUp(preview.pageNumber, event)
                       }
-                      onMouseLeave={(event) =>
-                        finishDrag(preview.pageNumber, event)
+                      onPointerCancel={(event) =>
+                        handlePointerCancel(preview.pageNumber, event)
                       }
                     >
                       {pageRects.map((rect, index) => (
@@ -515,15 +588,10 @@ export default function SanitizePage() {
                         />
                       ))}
 
-                      {isDraftPage && draftRect ? (
+                      {previewDraft ? (
                         <div
                           className="redact-box draft"
-                          style={getRectStyle({
-                            x: draftRect.x,
-                            y: draftRect.y,
-                            width: draftRect.width,
-                            height: draftRect.height
-                          })}
+                          style={getRectStyle(previewDraft)}
                         />
                       ) : null}
                     </div>

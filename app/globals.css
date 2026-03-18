@@ -464,3 +464,62 @@ select {
     min-height: 440px;
   }
 }
+
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.draw-status {
+  min-width: 140px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(6, 18, 31, 0.7);
+  color: #c8d8f0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.draw-status.drawing {
+  border-color: rgba(142, 240, 209, 0.28);
+  color: #cef8ec;
+  box-shadow: 0 0 0 1px rgba(142, 240, 209, 0.08) inset;
+}
+
+.canvas-stage {
+  touch-action: none;
+}
+
+.page-canvas {
+  pointer-events: none;
+}
+
+.rect-layer {
+  touch-action: none;
+  user-select: none;
+}
+
+.rect-layer.is-drawing {
+  cursor: crosshair;
+}
+
+.redact-box,
+.redact-box.draft {
+  transition: left 0.03s linear, top 0.03s linear, width 0.03s linear, height 0.03s linear;
+}
+
+.redact-box.draft {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+}
+
+@media (max-width: 1080px) {
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

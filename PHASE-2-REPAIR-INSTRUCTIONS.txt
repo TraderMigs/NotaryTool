@@ -1,0 +1,51 @@
+PHASE 2 REPAIR PATCH
+
+What this patch fixes
+1. Review session now survives page navigation by using sessionStorage instead of memory-only state.
+2. Clean PDF now persists into Review so the dashboard can update after download.
+3. Drag-to-redact is smoother by using pointer events instead of mouse leave / sticky drag behavior.
+4. A visible drawing status box was added so staff can tell when a box is actively being drawn.
+5. Dashboard refreshes more reliably after a completed download.
+
+Files included in this patch zip
+- app/globals.css
+- app/sanitize/page.tsx
+- app/review/page.tsx
+- app/dashboard/page.tsx
+- lib/runtimeStore.ts
+
+Cloud-only steps
+1. Open the GitHub upload page:
+   https://github.com/TraderMigs/NotaryTool/upload/main
+
+2. Drag these folders/files in and let GitHub replace same-name files.
+
+3. Commit directly to main.
+
+4. Open Vercel deployments:
+   https://vercel.com/migs-projects-b6fae86b/notary-tool/deployments
+
+5. Wait for the newest deployment to finish.
+
+6. Test this exact flow:
+   - upload PDF
+   - draw black boxes
+   - click Sanitize PDF
+   - verify Review loads the clean PDF
+   - check the confirmation box
+   - click Download clean PDF
+   - open Dashboard and confirm totals are no longer zero
+
+Direct links after commit
+- Repo root:
+  https://github.com/TraderMigs/NotaryTool
+- Upload page:
+  https://github.com/TraderMigs/NotaryTool/upload/main
+- Deployments:
+  https://vercel.com/migs-projects-b6fae86b/notary-tool/deployments
+- Latest commit list:
+  https://github.com/TraderMigs/NotaryTool/commits/main
+
+Note
+I cannot pre-generate the final commit URL because GitHub creates that exact commit hash only after you upload and commit.
+Open the commits page above right after commit and click the top commit.
