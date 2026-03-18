@@ -36,17 +36,33 @@ async function getPdfJs() {
   return pdfjsLib;
 }
 
-async function fileToArrayBuffer(file: File) {
+async function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
   return await file.arrayBuffer();
 }
 
-async function sha256FromBuffer(buffer: ArrayBuffer) {
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
+function toPlainArrayBuffer(
+  buffer: ArrayBuffer | SharedArrayBuffer
+): ArrayBuffer {
+  if (buffer instanceof ArrayBuffer) {
+    return buffer;
+  }
+
+  const bytes = new Uint8Array(buffer);
+  const copy = new Uint8Array(bytes.length);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+async function sha256FromBuffer(
+  buffer: ArrayBuffer | SharedArrayBuffer
+): Promise<string> {
+  const safeBuffer = toPlainArrayBuffer(buffer);
+  const digest = await crypto.subtle.digest("SHA-256", safeBuffer);
   const byteArray = Array.from(new Uint8Array(digest));
   return byteArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function dataUrlToUint8Array(dataUrl: string) {
+function dataUrlToUint8Array(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",")[1];
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -58,7 +74,7 @@ function dataUrlToUint8Array(dataUrl: string) {
   return bytes;
 }
 
-function getJpegDataUrl(canvas: HTMLCanvasElement) {
+function getJpegDataUrl(canvas: HTMLCanvasElement): string {
   return canvas.toDataURL("image/jpeg", 0.92);
 }
 
@@ -151,7 +167,10 @@ export async function sanitizePdfWithRasterization(params: {
     });
 
     const percent = Math.round((pageNumber / sourcePdf.numPages) * 82) + 8;
-    onProgress?.(percent, `Rendering page ${pageNumber} of ${sourcePdf.numPages}`);
+    onProgress?.(
+      percent,
+      `Rendering page ${pageNumber} of ${sourcePdf.numPages}`
+    );
   }
 
   onProgress?.(94, "Saving clean PDF");
@@ -162,9 +181,11 @@ export async function sanitizePdfWithRasterization(params: {
     updateFieldAppearances: false
   });
 
-  const cleanArrayBuffer = cleanBytes.buffer.slice(
-    cleanBytes.byteOffset,
-    cleanBytes.byteOffset + cleanBytes.byteLength
+  const cleanArrayBuffer = toPlainArrayBuffer(
+    cleanBytes.buffer.slice(
+      cleanBytes.byteOffset,
+      cleanBytes.byteOffset + cleanBytes.byteLength
+    )
   );
 
   const hash = await sha256FromBuffer(cleanArrayBuffer);
