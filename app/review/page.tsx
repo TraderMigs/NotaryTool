@@ -18,31 +18,38 @@ type DashboardStats = {
 
 const DASHBOARD_STORAGE_KEY = "notary-tool-dashboard-stats-v1";
 
-function getDefaultStats(): DashboardStats {
-  return {
-    totalDocuments: 0,
-    totalPages: 0,
-    totalRedactions: 0,
-    totalWitnessFeesFound: 0,
-    lastProcessedAt: null
-  };
-}
-
 function readStats(): DashboardStats {
   if (typeof window === "undefined") {
-    return getDefaultStats();
+    return {
+      totalDocuments: 0,
+      totalPages: 0,
+      totalRedactions: 0,
+      totalWitnessFeesFound: 0,
+      lastProcessedAt: null
+    };
   }
 
   const raw = window.localStorage.getItem(DASHBOARD_STORAGE_KEY);
-
   if (!raw) {
-    return getDefaultStats();
+    return {
+      totalDocuments: 0,
+      totalPages: 0,
+      totalRedactions: 0,
+      totalWitnessFeesFound: 0,
+      lastProcessedAt: null
+    };
   }
 
   try {
     return JSON.parse(raw) as DashboardStats;
   } catch {
-    return getDefaultStats();
+    return {
+      totalDocuments: 0,
+      totalPages: 0,
+      totalRedactions: 0,
+      totalWitnessFeesFound: 0,
+      lastProcessedAt: null
+    };
   }
 }
 
@@ -52,7 +59,6 @@ function writeStats(stats: DashboardStats) {
 
 function addSessionToStats(session: ReviewSession) {
   const current = readStats();
-
   const next: DashboardStats = {
     totalDocuments: current.totalDocuments + 1,
     totalPages: current.totalPages + session.pageCount,
@@ -76,6 +82,10 @@ export default function ReviewPage() {
     setSession(loaded);
   }, []);
 
+  useEffect(() => {
+    return () => {};
+  }, []);
+
   const createdAtLabel = useMemo(() => {
     if (!session?.createdAt) {
       return "—";
@@ -90,7 +100,7 @@ export default function ReviewPage() {
     }
 
     const link = document.createElement("a");
-    link.href = session.cleanPdfDataUrl;
+    link.href = session.cleanPdfUrl;
     link.download = session.cleanFileName;
     document.body.appendChild(link);
     link.click();
@@ -122,7 +132,7 @@ export default function ReviewPage() {
             </Link>
             <h1 className="page-title">Review clean PDF</h1>
             <p className="muted">
-              There is no active sanitized file loaded right now.
+              There is no active sanitized file loaded in memory right now.
             </p>
           </div>
         </div>
@@ -137,7 +147,6 @@ export default function ReviewPage() {
             <Link href="/sanitize" className="primary-btn">
               Go to sanitize
             </Link>
-
             <Link href="/dashboard" className="secondary-btn">
               Open dashboard
             </Link>
@@ -165,7 +174,6 @@ export default function ReviewPage() {
           <Link href="/sanitize" className="secondary-btn">
             Back to sanitize
           </Link>
-
           <Link href="/dashboard" className="secondary-btn">
             Open dashboard
           </Link>
@@ -178,17 +186,14 @@ export default function ReviewPage() {
           <iframe
             title="Clean PDF preview"
             className="review-frame"
-            src={session.cleanPdfDataUrl}
+            src={session.cleanPdfUrl}
           />
         </div>
 
         <div className="panel">
           <h2>Audit summary</h2>
 
-          <div
-            className="info-grid"
-            style={{ gridTemplateColumns: "1fr 1fr", marginTop: 18 }}
-          >
+          <div className="info-grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 18 }}>
             <div className="info-card">
               <div className="small-label">ORIGINAL</div>
               <div className="kv-strong">{session.originalFileName}</div>
@@ -232,7 +237,6 @@ export default function ReviewPage() {
               checked={confirmed}
               onChange={(event) => setConfirmed(event.target.checked)}
             />
-
             <label htmlFor="confirm-redaction" className="list-text">
               I reviewed the output and confirm the visible redactions are
               correct. I understand this utility does not replace my legal duty
@@ -267,7 +271,8 @@ export default function ReviewPage() {
 
           {downloaded ? (
             <div className="success-box">
-              Clean PDF downloaded. Dashboard stats were updated in this browser.
+              Clean PDF downloaded. Dashboard stats were updated locally in this
+              browser.
             </div>
           ) : null}
         </div>

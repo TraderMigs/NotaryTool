@@ -18,13 +18,27 @@ type PagePreview = {
   dataUrl: string;
 };
 
-type PointerDraft = {
-  pointerId: number;
+type DraftRect = {
   pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} | null;
+
+type DragState = {
+  pageNumber: number;
+  pointerId: number;
   startX: number;
   startY: number;
-  currentX: number;
-  currentY: number;
+};
+
+type PointerBadge = {
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 } | null;
 
 function clamp01(value: number) {
@@ -44,7 +58,7 @@ function normalizeRect(
   const width = Math.abs(x2 - x1);
   const height = Math.abs(y2 - y1);
 
-  if (width < 0.008 || height < 0.008) {
+  if (width < 0.006 || height < 0.006) {
     return null;
   }
 
@@ -65,25 +79,8 @@ function getRectStyle(rect: NormalizedRect) {
   };
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("The clean PDF could not be converted for review."));
-    };
-
-    reader.onerror = () => {
-      reject(new Error("The clean PDF could not be converted for review."));
-    };
-
-    reader.readAsDataURL(blob);
-  });
+function formatPercentSize(value: number) {
+  return `${Math.max(1, Math.round(value * 100))}%`;
 }
 
 export default function SanitizePage() {
@@ -93,47 +90,56 @@ export default function SanitizePage() {
   const [pageCount, setPageCount] = useState(0);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [pageRectsMap, setPageRectsMap] = useState<PageRectsMap>({});
-  const [pointerDraft, setPointerDraft] = useState<PointerDraft>(null);
+  const [draftRect, setDraftRect] = useState<DraftRect>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [pointerBadge, setPointerBadge] = useState<PointerBadge>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("Waiting");
   const [error, setError] = useState("");
   const containerRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const rafRef = useRef<number | null>(null);
+  const pendingDraftRef = useRef<DraftRect>(null);
 
   const totalRedactions = useMemo(() => {
-    return Object.values(pageRectsMap).reduce((sum, rects) => sum + rects.length, 0);
-  }, [pageRectsMap]);
-
-  const draftRect = useMemo(() => {
-    if (!pointerDraft) {
-      return null;
-    }
-
-    const normalized = normalizeRect(
-      pointerDraft.startX,
-      pointerDraft.startY,
-      pointerDraft.currentX,
-      pointerDraft.currentY
+    return Object.values(pageRectsMap).reduce(
+      (sum, rects) => sum + rects.length,
+      0
     );
-
-    if (!normalized) {
-      return null;
-    }
-
-    return {
-      pageNumber: pointerDraft.pageNumber,
-      rect: normalized
-    };
-  }, [pointerDraft]);
+  }, [pageRectsMap]);
 
   async function getPdfJs(): Promise<PdfJsModule> {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
     }
-
     return pdfjsLib;
+  }
+
+  function flushDraftRect() {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    if (pendingDraftRef.current !== null) {
+      setDraftRect(pendingDraftRef.current);
+      pendingDraftRef.current = null;
+    }
+  }
+
+  function scheduleDraftRect(nextDraft: DraftRect) {
+    pendingDraftRef.current = nextDraft;
+
+    if (rafRef.current !== null) {
+      return;
+    }
+
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      setDraftRect(pendingDraftRef.current);
+      pendingDraftRef.current = null;
+    });
   }
 
   async function renderPreviewPages(selectedFile: File) {
@@ -141,17 +147,21 @@ export default function SanitizePage() {
     setError("");
     setProgress(4);
     setProgressLabel("Loading preview");
+    setDraftRect(null);
+    setDragState(null);
+    setPointerBadge(null);
 
     try {
       const pdfjsLib = await getPdfJs();
       const bytes = await selectedFile.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: bytes });
       const pdf = await loadingTask.promise;
+
       const previews: PagePreview[] = [];
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.25 });
+        const viewport = page.getViewport({ scale: 1.2 });
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
 
@@ -185,7 +195,6 @@ export default function SanitizePage() {
       setPageCount(pdf.numPages);
       setPagePreviews(previews);
       setPageRectsMap({});
-      setPointerDraft(null);
       setProgress(100);
       setProgressLabel("Preview ready");
     } catch (caughtError) {
@@ -193,7 +202,6 @@ export default function SanitizePage() {
         caughtError instanceof Error
           ? caughtError.message
           : "The PDF could not be loaded.";
-
       setError(message);
       setProgress(0);
       setProgressLabel("Failed");
@@ -227,7 +235,6 @@ export default function SanitizePage() {
     clientY: number
   ) {
     const container = containerRefs.current[pageNumber];
-
     if (!container) {
       return null;
     }
@@ -239,6 +246,21 @@ export default function SanitizePage() {
     return { x, y };
   }
 
+  function updatePointerBadge(pageNumber: number, rect: NormalizedRect | null) {
+    if (!rect) {
+      setPointerBadge(null);
+      return;
+    }
+
+    setPointerBadge({
+      pageNumber,
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height
+    });
+  }
+
   function handlePointerDown(
     pageNumber: number,
     event: React.PointerEvent<HTMLDivElement>
@@ -248,21 +270,35 @@ export default function SanitizePage() {
     }
 
     const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
-
-    if (!point) {
-      return;
-    }
+    if (!point) return;
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
 
-    setPointerDraft({
-      pointerId: event.pointerId,
+    const nextDragState: DragState = {
       pageNumber,
+      pointerId: event.pointerId,
       startX: point.x,
-      startY: point.y,
-      currentX: point.x,
-      currentY: point.y
+      startY: point.y
+    };
+
+    setDragState(nextDragState);
+
+    const initialDraft: DraftRect = {
+      pageNumber,
+      x: point.x,
+      y: point.y,
+      width: 0,
+      height: 0
+    };
+
+    setDraftRect(initialDraft);
+    setPointerBadge({
+      pageNumber,
+      x: point.x,
+      y: point.y,
+      width: 0,
+      height: 0
     });
   }
 
@@ -270,93 +306,97 @@ export default function SanitizePage() {
     pageNumber: number,
     event: React.PointerEvent<HTMLDivElement>
   ) {
-    setPointerDraft((current) => {
-      if (!current) {
-        return current;
-      }
+    const activeDrag = dragState;
+    if (!activeDrag || activeDrag.pageNumber !== pageNumber) {
+      return;
+    }
 
-      if (current.pageNumber !== pageNumber || current.pointerId !== event.pointerId) {
-        return current;
-      }
+    const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
+    if (!point) return;
 
-      const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
+    const nextRect = normalizeRect(
+      activeDrag.startX,
+      activeDrag.startY,
+      point.x,
+      point.y
+    );
 
-      if (!point) {
-        return current;
-      }
-
-      return {
-        ...current,
-        currentX: point.x,
-        currentY: point.y
+    if (!nextRect) {
+      const tinyDraft: DraftRect = {
+        pageNumber,
+        x: activeDrag.startX,
+        y: activeDrag.startY,
+        width: 0,
+        height: 0
       };
+      scheduleDraftRect(tinyDraft);
+      setPointerBadge({
+        pageNumber,
+        x: activeDrag.startX,
+        y: activeDrag.startY,
+        width: Math.abs(point.x - activeDrag.startX),
+        height: Math.abs(point.y - activeDrag.startY)
+      });
+      return;
+    }
+
+    scheduleDraftRect({
+      pageNumber,
+      ...nextRect
     });
+    updatePointerBadge(pageNumber, nextRect);
   }
 
-  function finalizePointerDrag(
-    pageNumber: number,
-    pointerId: number,
-    clientX: number,
-    clientY: number
-  ) {
-    setPointerDraft((current) => {
-      if (!current) {
-        return null;
+  function finishDrag(pageNumber: number, event?: React.PointerEvent<HTMLDivElement>) {
+    const activeDrag = dragState;
+    if (!activeDrag || activeDrag.pageNumber !== pageNumber) {
+      return;
+    }
+
+    flushDraftRect();
+
+    let finalRect: NormalizedRect | null = null;
+
+    if (event) {
+      const point = getPointerPosition(pageNumber, event.clientX, event.clientY);
+      if (point) {
+        finalRect = normalizeRect(
+          activeDrag.startX,
+          activeDrag.startY,
+          point.x,
+          point.y
+        );
       }
+    }
 
-      if (current.pageNumber !== pageNumber || current.pointerId !== pointerId) {
-        return current;
-      }
-
-      const point =
-        getPointerPosition(pageNumber, clientX, clientY) ?? {
-          x: current.currentX,
-          y: current.currentY
-        };
-
-      const finalRect = normalizeRect(
-        current.startX,
-        current.startY,
-        point.x,
-        point.y
+    if (!finalRect && draftRect && draftRect.pageNumber === pageNumber) {
+      finalRect = normalizeRect(
+        draftRect.x,
+        draftRect.y,
+        draftRect.x + draftRect.width,
+        draftRect.y + draftRect.height
       );
+    }
 
-      if (finalRect) {
-        setPageRectsMap((existingMap) => {
-          const existingRects = existingMap[pageNumber] ?? [];
+    if (finalRect) {
+      setPageRectsMap((current) => {
+        const existing = current[pageNumber] ?? [];
+        return {
+          ...current,
+          [pageNumber]: [...existing, finalRect]
+        };
+      });
+    }
 
-          return {
-            ...existingMap,
-            [pageNumber]: [...existingRects, finalRect]
-          };
-        });
-      }
-
-      return null;
-    });
-  }
-
-  function handlePointerUp(
-    pageNumber: number,
-    event: React.PointerEvent<HTMLDivElement>
-  ) {
-    finalizePointerDrag(pageNumber, event.pointerId, event.clientX, event.clientY);
-  }
-
-  function handlePointerCancel(
-    pageNumber: number,
-    event: React.PointerEvent<HTMLDivElement>
-  ) {
-    finalizePointerDrag(pageNumber, event.pointerId, event.clientX, event.clientY);
+    setDragState(null);
+    setDraftRect(null);
+    setPointerBadge(null);
   }
 
   function removeLastRect(pageNumber: number) {
     setPageRectsMap((current) => {
       const existing = current[pageNumber] ?? [];
-
-      if (existing.length === 0) {
-        return current;
-      }
+      if (existing.length === 0) return current;
 
       return {
         ...current,
@@ -396,7 +436,7 @@ export default function SanitizePage() {
         }
       });
 
-      const cleanPdfDataUrl = await blobToDataUrl(result.blob);
+      const cleanPdfUrl = URL.createObjectURL(result.blob);
 
       setReviewSession({
         originalFileName: file.name,
@@ -404,7 +444,7 @@ export default function SanitizePage() {
         hash: result.hash,
         pageCount: result.pageCount,
         redactionCount: result.redactionCount,
-        cleanPdfDataUrl,
+        cleanPdfUrl,
         createdAt: new Date().toISOString(),
         estimatedWitnessFeesFound: result.pageCount * 5
       });
@@ -413,18 +453,10 @@ export default function SanitizePage() {
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : "Sanitization failed.";
-
       setError(message);
       setBusy(false);
-      setProgressLabel("Failed");
     }
   }
-
-  const drawingStatus = pointerDraft
-    ? "Drawing box..."
-    : totalRedactions > 0
-      ? `${totalRedactions} box${totalRedactions === 1 ? "" : "es"} ready`
-      : "No boxes yet";
 
   return (
     <main className="shell">
@@ -452,7 +484,6 @@ export default function SanitizePage() {
 
       <section className="panel">
         <h2>1. Upload document</h2>
-
         <div className="upload-box">
           <input type="file" accept="application/pdf" onChange={onFileChange} />
           <div className="upload-hint">
@@ -494,18 +525,16 @@ export default function SanitizePage() {
       </section>
 
       <section className="panel">
-        <div className="section-head">
+        <div className="section-header-row">
           <div>
             <h2>2. Draw redaction boxes</h2>
             <p className="muted">
-              Click and drag on a page to mark private content. These blacked-out
-              regions will be burned into a new image-only PDF so the original text
-              layer is no longer recoverable from the output file.
+              Click and drag on a page to mark private content. The live guide
+              now follows your pointer and shows the box size as you drag.
             </p>
           </div>
-
-          <div className={`draw-status${pointerDraft ? " drawing" : ""}`}>
-            {drawingStatus}
+          <div className="draw-mode-pill">
+            {dragState ? "Drawing box..." : `${totalRedactions} boxes ready`}
           </div>
         </div>
 
@@ -517,10 +546,9 @@ export default function SanitizePage() {
           <div className="page-stack">
             {pagePreviews.map((preview) => {
               const pageRects = pageRectsMap[preview.pageNumber] ?? [];
-              const previewDraft =
-                draftRect && draftRect.pageNumber === preview.pageNumber
-                  ? draftRect.rect
-                  : null;
+              const isDraftPage = draftRect?.pageNumber === preview.pageNumber;
+              const isDraggingThisPage = dragState?.pageNumber === preview.pageNumber;
+              const showBadge = pointerBadge?.pageNumber === preview.pageNumber;
 
               return (
                 <div className="page-canvas-wrap" key={preview.pageNumber}>
@@ -541,7 +569,6 @@ export default function SanitizePage() {
                       >
                         Undo last box
                       </button>
-
                       <button
                         type="button"
                         className="danger-btn"
@@ -553,7 +580,7 @@ export default function SanitizePage() {
                   </div>
 
                   <div
-                    className="canvas-stage"
+                    className={`canvas-stage ${isDraggingThisPage ? "is-drawing" : ""}`}
                     ref={(node) => {
                       containerRefs.current[preview.pageNumber] = node;
                     }}
@@ -566,20 +593,22 @@ export default function SanitizePage() {
                     />
 
                     <div
-                      className={`rect-layer${pointerDraft ? " is-drawing" : ""}`}
+                      className="rect-layer"
                       onPointerDown={(event) =>
                         handlePointerDown(preview.pageNumber, event)
                       }
                       onPointerMove={(event) =>
                         handlePointerMove(preview.pageNumber, event)
                       }
-                      onPointerUp={(event) =>
-                        handlePointerUp(preview.pageNumber, event)
-                      }
-                      onPointerCancel={(event) =>
-                        handlePointerCancel(preview.pageNumber, event)
+                      onPointerUp={(event) => finishDrag(preview.pageNumber, event)}
+                      onPointerCancel={(event) => finishDrag(preview.pageNumber, event)}
+                      onLostPointerCapture={(event) =>
+                        finishDrag(preview.pageNumber, event)
                       }
                     >
+                      <div className="stage-crosshair stage-crosshair-x" />
+                      <div className="stage-crosshair stage-crosshair-y" />
+
                       {pageRects.map((rect, index) => (
                         <div
                           key={`${preview.pageNumber}-${index}`}
@@ -588,11 +617,28 @@ export default function SanitizePage() {
                         />
                       ))}
 
-                      {previewDraft ? (
+                      {isDraftPage && draftRect ? (
                         <div
                           className="redact-box draft"
-                          style={getRectStyle(previewDraft)}
+                          style={getRectStyle({
+                            x: draftRect.x,
+                            y: draftRect.y,
+                            width: draftRect.width,
+                            height: draftRect.height
+                          })}
                         />
+                      ) : null}
+
+                      {showBadge && pointerBadge ? (
+                        <div
+                          className="drag-size-badge"
+                          style={{
+                            left: `${Math.min(pointerBadge.x + pointerBadge.width, 0.94) * 100}%`,
+                            top: `${Math.max(pointerBadge.y - 0.04, 0.02) * 100}%`
+                          }}
+                        >
+                          {formatPercentSize(pointerBadge.width)} × {formatPercentSize(pointerBadge.height)}
+                        </div>
                       ) : null}
                     </div>
                   </div>
