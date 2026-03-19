@@ -1,81 +1,85 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import PublicHeader from "@/components/PublicHeader";
 
-function SignupContent() {
+function SignupInner() {
   const params = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const preselectedPlan = params.get("plan") || "free";
+  const plan = params.get("plan") ?? "free";
 
   return (
-    <main className="auth-shell">
-      <div className="auth-card">
-        <Link href="/" className="back-link">← Back home</Link>
+    <main className="sf-shell">
+      <section className="sf-hero-wrap sf-auth-wrap">
+        <PublicHeader ctaHref="/login" ctaLabel="Log in" />
 
-        <div className="eyebrow">CREATE ACCOUNT</div>
-        <h1 className="auth-title">Start with the right plan</h1>
-        <p className="muted">
-          This is the public account entry shell. Real auth wiring, legal acceptance storage,
-          and Stripe gating land in the next phase.
-        </p>
+        <div className="sf-auth-card sf-auth-card-wide">
+          <span className="sf-eyebrow">CREATE ACCOUNT</span>
+          <h1 className="sf-h2">Start with a plan that fits your workflow.</h1>
+          <p className="sf-body">
+            Free users get limited daily access. Paid users unlock unlimited use after verified billing flow.
+          </p>
 
-        <div className="plan-pills">
-          <span className={preselectedPlan === "free" ? "pill active-plan-pill" : "pill"}>Free</span>
-          <span className={preselectedPlan === "monthly" ? "pill active-plan-pill" : "pill"}>Monthly</span>
-          <span className={preselectedPlan === "yearly" ? "pill active-plan-pill" : "pill"}>Yearly</span>
+          <div className="sf-pills">
+            <span className={`sf-pill ${plan === "free" ? "sf-pill-active" : ""}`}>Free</span>
+            <span className={`sf-pill ${plan === "monthly" ? "sf-pill-active" : ""}`}>Monthly</span>
+            <span className={`sf-pill ${plan === "yearly" ? "sf-pill-active" : ""}`}>Yearly</span>
+          </div>
+
+          <form className="sf-form">
+            <label className="sf-field">
+              <span>Email</span>
+              <input type="email" placeholder="you@example.com" />
+            </label>
+
+            <label className="sf-field">
+              <span>Password</span>
+              <div className="sf-password-wrap">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a password"
+                />
+                <button
+                  type="button"
+                  className="sf-eye-btn"
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </label>
+
+            <label className="sf-field">
+              <span>Plan</span>
+              <select defaultValue={plan}>
+                <option value="free">Free · 5 sanitizes/day</option>
+                <option value="monthly">$14/month unlimited</option>
+                <option value="yearly">$97/year unlimited</option>
+              </select>
+            </label>
+
+            <label className="sf-check">
+              <input type="checkbox" />
+              <span>
+                I understand Specterfy is a privacy pre-processor utility and does not replace legal judgment,
+                downstream review, or user responsibility.
+              </span>
+            </label>
+
+            <button type="button" className="sf-btn sf-btn-primary sf-btn-full">
+              Continue
+            </button>
+          </form>
+
+          <div className="sf-inline-links">
+            <Link href="/terms" className="sf-text-link">Terms</Link>
+            <Link href="/privacy" className="sf-text-link">Privacy</Link>
+            <Link href="/login" className="sf-text-link">Already have an account?</Link>
+          </div>
         </div>
-
-        <form className="auth-form">
-          <label className="field-wrap">
-            <span className="field-label">Email</span>
-            <input type="email" className="field-input" placeholder="you@example.com" />
-          </label>
-
-          <label className="field-wrap">
-            <span className="field-label">Password</span>
-            <div className="password-wrap">
-              <input
-                type={showPassword ? "text" : "password"}
-                className="field-input password-input"
-                placeholder="Create a password"
-              />
-              <button
-                type="button"
-                className="eye-btn"
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-          </label>
-
-          <label className="field-wrap">
-            <span className="field-label">Plan</span>
-            <select className="field-input" defaultValue={preselectedPlan}>
-              <option value="free">Free • 5/day</option>
-              <option value="monthly">$14/month</option>
-              <option value="yearly">$97/year</option>
-            </select>
-          </label>
-
-          <label className="check-row legal-row">
-            <input type="checkbox" />
-            <span className="list-text">
-              I understand this tool is a privacy pre-processor utility and does not replace legal judgment or workflow review.
-            </span>
-          </label>
-
-          <button type="button" className="primary-btn auth-btn">Continue</button>
-        </form>
-
-        <div className="auth-links">
-          <Link href="/login" className="text-link">Already have an account?</Link>
-          <Link href="/terms" className="text-link">Terms</Link>
-          <Link href="/privacy" className="text-link">Privacy</Link>
-        </div>
-      </div>
+      </section>
     </main>
   );
 }
@@ -83,7 +87,7 @@ function SignupContent() {
 export default function SignupPage() {
   return (
     <Suspense>
-      <SignupContent />
+      <SignupInner />
     </Suspense>
   );
 }
