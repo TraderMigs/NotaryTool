@@ -61,12 +61,7 @@ export default function ForgotPage() {
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                <div style={{
-                  background: 'var(--cyan-glow)',
-                  border: '1px solid var(--border-cyan)',
-                  borderRadius: '10px',
-                  padding: '20px',
-                }}>
+                <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '10px', padding: '20px' }}>
                   <p style={{ fontWeight: 600, fontSize: '14px', color: 'var(--cyan)', marginBottom: '6px' }}>Reset link sent</p>
                   <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
                     If an account exists for <strong style={{ color: 'var(--text-secondary)' }}>{email}</strong>, a reset link has been sent.

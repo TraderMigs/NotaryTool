@@ -19,7 +19,7 @@ export default function PricingPage() {
             <p className="label">Pricing</p>
             <h1 style={{
               fontFamily: 'var(--dm-sans, sans-serif)',
-              fontSize: 'clamp(36px, 5.5vw, 62px)',
+              fontSize: 'clamp(34px, 5vw, 58px)',
               fontWeight: 700,
               letterSpacing: '-0.025em',
               marginTop: '14px',
@@ -54,9 +54,7 @@ export default function PricingPage() {
 
               <div className="pricing-card featured">
                 <div className="pricing-badge">Monthly</div>
-                <div className="pricing-price">
-                  $14<span className="pricing-per">/mo</span>
-                </div>
+                <div className="pricing-price">$9.97<span className="pricing-per">/mo</span></div>
                 <p className="pricing-desc">Unlimited sanitization. No daily cap.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Unlimited sanitizes</span>
@@ -70,10 +68,8 @@ export default function PricingPage() {
 
               <div className="pricing-card">
                 <div className="pricing-badge">Yearly</div>
-                <div className="pricing-price">
-                  $97<span className="pricing-per">/yr</span>
-                </div>
-                <p className="pricing-desc">Unlimited sanitization. Equivalent to $8.08/mo.</p>
+                <div className="pricing-price">$89<span className="pricing-per">/yr</span></div>
+                <p className="pricing-desc">Unlimited sanitization. Equivalent to $7.42/mo.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Unlimited sanitizes</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Full account access</span>
@@ -94,7 +90,7 @@ export default function PricingPage() {
 
           <div className="rule" />
 
-          <div style={{ padding: '48px 0', maxWidth: '560px' }}>
+          <div style={{ padding: '48px 0', maxWidth: '540px' }}>
             <p className="label" style={{ marginBottom: '12px' }}>Important</p>
             <p style={{ fontSize: '15px', color: 'var(--text-muted)', lineHeight: '1.75' }}>
               Specterfy is a privacy pre-processing utility. It is not a notary platform,
