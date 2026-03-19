@@ -11,6 +11,7 @@ export type PageRectsMap = Record<number, NormalizedRect[]>;
 
 export type SanitizeResult = {
   blob: Blob;
+  base64: string;
   hash: string;
   pageCount: number;
   redactionCount: number;
@@ -20,12 +21,9 @@ export type SanitizeResult = {
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 
 function ensureWorkerConfigured(pdfjsLib: PdfJsModule) {
-  if (typeof window === "undefined") {
-    return;
-  }
+  if (typeof window === "undefined") return;
 
-  const current = pdfjsLib.GlobalWorkerOptions.workerSrc;
-  if (!current) {
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
   }
 }
@@ -36,16 +34,10 @@ async function getPdfJs() {
   return pdfjsLib;
 }
 
-async function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
-  return await file.arrayBuffer();
-}
-
 function toPlainArrayBuffer(
   buffer: ArrayBuffer | SharedArrayBuffer
 ): ArrayBuffer {
-  if (buffer instanceof ArrayBuffer) {
-    return buffer;
-  }
+  if (buffer instanceof ArrayBuffer) return buffer;
 
   const bytes = new Uint8Array(buffer);
   const copy = new Uint8Array(bytes.length);
@@ -56,14 +48,14 @@ function toPlainArrayBuffer(
 async function sha256FromBuffer(
   buffer: ArrayBuffer | SharedArrayBuffer
 ): Promise<string> {
-  const safeBuffer = toPlainArrayBuffer(buffer);
-  const digest = await crypto.subtle.digest("SHA-256", safeBuffer);
-  const byteArray = Array.from(new Uint8Array(digest));
-  return byteArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest("SHA-256", toPlainArrayBuffer(buffer));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function dataUrlToUint8Array(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.split(",")[1];
+  const base64 = dataUrl.split(",")[1] ?? "";
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
 
@@ -74,8 +66,16 @@ function dataUrlToUint8Array(dataUrl: string): Uint8Array {
   return bytes;
 }
 
-function getJpegDataUrl(canvas: HTMLCanvasElement): string {
-  return canvas.toDataURL("image/jpeg", 0.92);
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return btoa(binary);
 }
 
 function drawRectsOnCanvas(
@@ -85,19 +85,17 @@ function drawRectsOnCanvas(
   viewportHeight: number
 ) {
   const ctx = canvas.getContext("2d");
-  if (!ctx || rects.length === 0) {
-    return;
-  }
+  if (!ctx || rects.length === 0) return;
 
   ctx.fillStyle = "#000000";
 
   rects.forEach((rect) => {
-    const x = rect.x * viewportWidth;
-    const y = rect.y * viewportHeight;
-    const width = rect.width * viewportWidth;
-    const height = rect.height * viewportHeight;
-
-    ctx.fillRect(x, y, width, height);
+    ctx.fillRect(
+      rect.x * viewportWidth,
+      rect.y * viewportHeight,
+      rect.width * viewportWidth,
+      rect.height * viewportHeight
+    );
   });
 }
 
@@ -109,13 +107,9 @@ export async function sanitizePdfWithRasterization(params: {
   const { file, pageRectsMap, onProgress } = params;
 
   onProgress?.(4, "Loading PDF");
-  const inputBytes = await fileToArrayBuffer(file);
+  const inputBytes = await file.arrayBuffer();
   const pdfjsLib = await getPdfJs();
-  const loadingTask = pdfjsLib.getDocument({
-    data: inputBytes
-  });
-
-  const sourcePdf = await loadingTask.promise;
+  const sourcePdf = await pdfjsLib.getDocument({ data: inputBytes }).promise;
   const cleanPdf = await PDFDocument.create();
 
   cleanPdf.setTitle("");
@@ -151,11 +145,9 @@ export async function sanitizePdfWithRasterization(params: {
 
     const pageRects = pageRectsMap[pageNumber] ?? [];
     totalRects += pageRects.length;
-
     drawRectsOnCanvas(canvas, pageRects, viewport.width, viewport.height);
 
-    const jpegDataUrl = getJpegDataUrl(canvas);
-    const jpegBytes = dataUrlToUint8Array(jpegDataUrl);
+    const jpegBytes = dataUrlToUint8Array(canvas.toDataURL("image/jpeg", 0.92));
     const embeddedImage = await cleanPdf.embedJpg(jpegBytes);
 
     const newPage = cleanPdf.addPage([viewport.width, viewport.height]);
@@ -166,11 +158,8 @@ export async function sanitizePdfWithRasterization(params: {
       height: viewport.height
     });
 
-    const percent = Math.round((pageNumber / sourcePdf.numPages) * 82) + 8;
-    onProgress?.(
-      percent,
-      `Rendering page ${pageNumber} of ${sourcePdf.numPages}`
-    );
+    const percent = Math.round((pageNumber / sourcePdf.numPages) * 80) + 10;
+    onProgress?.(percent, `Rendering page ${pageNumber} of ${sourcePdf.numPages}`);
   }
 
   onProgress?.(94, "Saving clean PDF");
@@ -181,20 +170,22 @@ export async function sanitizePdfWithRasterization(params: {
     updateFieldAppearances: false
   });
 
-  const cleanArrayBuffer = toPlainArrayBuffer(
+  const cleanBuffer = toPlainArrayBuffer(
     cleanBytes.buffer.slice(
       cleanBytes.byteOffset,
       cleanBytes.byteOffset + cleanBytes.byteLength
     )
   );
 
-  const hash = await sha256FromBuffer(cleanArrayBuffer);
-  const cleanBlob = new Blob([cleanBytes], { type: "application/pdf" });
+  const blob = new Blob([cleanBytes], { type: "application/pdf" });
+  const base64 = await blobToBase64(blob);
+  const hash = await sha256FromBuffer(cleanBuffer);
 
   onProgress?.(100, "Clean PDF ready");
 
   return {
-    blob: cleanBlob,
+    blob,
+    base64,
     hash,
     pageCount: sourcePdf.numPages,
     redactionCount: totalRects,

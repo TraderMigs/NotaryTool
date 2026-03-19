@@ -3,76 +3,26 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ReviewSession,
+  addSessionToDashboard,
   clearReviewSession,
-  getReviewSession,
-  ReviewSession
+  getReviewSession
 } from "@/lib/runtimeStore";
 
-type DashboardStats = {
-  totalDocuments: number;
-  totalPages: number;
-  totalRedactions: number;
-  totalWitnessFeesFound: number;
-  lastProcessedAt: string | null;
-};
+function base64ToBlob(base64: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
 
-const DASHBOARD_STORAGE_KEY = "notary-tool-dashboard-stats-v1";
-
-function readStats(): DashboardStats {
-  if (typeof window === "undefined") {
-    return {
-      totalDocuments: 0,
-      totalPages: 0,
-      totalRedactions: 0,
-      totalWitnessFeesFound: 0,
-      lastProcessedAt: null
-    };
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
   }
 
-  const raw = window.localStorage.getItem(DASHBOARD_STORAGE_KEY);
-  if (!raw) {
-    return {
-      totalDocuments: 0,
-      totalPages: 0,
-      totalRedactions: 0,
-      totalWitnessFeesFound: 0,
-      lastProcessedAt: null
-    };
-  }
-
-  try {
-    return JSON.parse(raw) as DashboardStats;
-  } catch {
-    return {
-      totalDocuments: 0,
-      totalPages: 0,
-      totalRedactions: 0,
-      totalWitnessFeesFound: 0,
-      lastProcessedAt: null
-    };
-  }
-}
-
-function writeStats(stats: DashboardStats) {
-  window.localStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify(stats));
-}
-
-function addSessionToStats(session: ReviewSession) {
-  const current = readStats();
-  const next: DashboardStats = {
-    totalDocuments: current.totalDocuments + 1,
-    totalPages: current.totalPages + session.pageCount,
-    totalRedactions: current.totalRedactions + session.redactionCount,
-    totalWitnessFeesFound:
-      current.totalWitnessFeesFound + session.estimatedWitnessFeesFound,
-    lastProcessedAt: new Date().toISOString()
-  };
-
-  writeStats(next);
+  return new Blob([bytes], { type: "application/pdf" });
 }
 
 export default function ReviewPage() {
   const [session, setSession] = useState<ReviewSession | null>(null);
+  const [pdfUrl, setPdfUrl] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [recorded, setRecorded] = useState(false);
@@ -80,34 +30,37 @@ export default function ReviewPage() {
   useEffect(() => {
     const loaded = getReviewSession();
     setSession(loaded);
-  }, []);
 
-  useEffect(() => {
-    return () => {};
+    if (loaded?.cleanPdfBase64) {
+      const blob = base64ToBlob(loaded.cleanPdfBase64);
+      const objectUrl = URL.createObjectURL(blob);
+      setPdfUrl(objectUrl);
+
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    }
+
+    return undefined;
   }, []);
 
   const createdAtLabel = useMemo(() => {
-    if (!session?.createdAt) {
-      return "—";
-    }
-
+    if (!session?.createdAt) return "—";
     return new Date(session.createdAt).toLocaleString();
   }, [session]);
 
   function handleDownload() {
-    if (!session || !confirmed) {
-      return;
-    }
+    if (!session || !confirmed || !pdfUrl) return;
 
     const link = document.createElement("a");
-    link.href = session.cleanPdfUrl;
+    link.href = pdfUrl;
     link.download = session.cleanFileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
     if (!recorded) {
-      addSessionToStats(session);
+      addSessionToDashboard(session);
       setRecorded(true);
     }
 
@@ -117,37 +70,39 @@ export default function ReviewPage() {
   function handleClear() {
     clearReviewSession();
     setSession(null);
+    setPdfUrl("");
     setConfirmed(false);
     setDownloaded(false);
     setRecorded(false);
   }
 
-  if (!session) {
+  if (!session || !pdfUrl) {
     return (
-      <main className="shell">
-        <div className="top-bar">
+      <main className="site-shell">
+        <section className="page-header">
           <div>
             <Link href="/" className="back-link">
               ← Back home
             </Link>
+            <div className="eyebrow">REVIEW STEP</div>
             <h1 className="page-title">Review clean PDF</h1>
             <p className="muted">
-              There is no active sanitized file loaded in memory right now.
+              There is no active sanitized file loaded in browser storage right now.
             </p>
           </div>
-        </div>
+        </section>
 
         <section className="panel">
           <div className="warning-box">
-            Go to the Sanitize page first, upload a PDF, add redaction boxes,
-            and generate a clean output.
+            Go to the Sanitize page first, upload a PDF, add redaction boxes, and
+            generate a clean output.
           </div>
 
-          <div className="actions-row" style={{ marginTop: 16 }}>
-            <Link href="/sanitize" className="primary-btn">
+          <div className="actions-wrap">
+            <Link href="/sanitize" className="primary-btn small-btn">
               Go to sanitize
             </Link>
-            <Link href="/dashboard" className="secondary-btn">
+            <Link href="/dashboard" className="secondary-btn small-btn">
               Open dashboard
             </Link>
           </div>
@@ -157,70 +112,63 @@ export default function ReviewPage() {
   }
 
   return (
-    <main className="shell">
-      <div className="top-bar">
+    <main className="site-shell">
+      <section className="page-header">
         <div>
           <Link href="/" className="back-link">
             ← Back home
           </Link>
+          <div className="eyebrow">REVIEW STEP</div>
           <h1 className="page-title">Review clean PDF</h1>
           <p className="muted">
-            Review the output, confirm responsibility, then download the
-            sanitized PDF.
+            Confirm the output, then download the sanitized PDF.
           </p>
         </div>
 
         <div className="actions-wrap">
-          <Link href="/sanitize" className="secondary-btn">
+          <Link href="/sanitize" className="secondary-btn small-btn">
             Back to sanitize
           </Link>
-          <Link href="/dashboard" className="secondary-btn">
+          <Link href="/dashboard" className="secondary-btn small-btn">
             Open dashboard
           </Link>
         </div>
-      </div>
+      </section>
 
       <section className="review-grid">
         <div className="panel">
-          <h2>Clean PDF preview</h2>
-          <iframe
-            title="Clean PDF preview"
-            className="review-frame"
-            src={session.cleanPdfUrl}
-          />
+          <div className="eyebrow">PREVIEW</div>
+          <h2 className="panel-title">Clean PDF preview</h2>
+          <iframe title="Clean PDF preview" className="review-frame" src={pdfUrl} />
         </div>
 
         <div className="panel">
-          <h2>Audit summary</h2>
+          <div className="eyebrow">AUDIT SUMMARY</div>
+          <h2 className="panel-title">Ready for owner review</h2>
 
-          <div className="info-grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 18 }}>
+          <div className="info-grid compact-grid">
             <div className="info-card">
               <div className="small-label">ORIGINAL</div>
               <div className="kv-strong">{session.originalFileName}</div>
             </div>
-
             <div className="info-card">
               <div className="small-label">CLEAN FILE</div>
               <div className="kv-strong">{session.cleanFileName}</div>
             </div>
-
             <div className="info-card">
               <div className="small-label">PAGES</div>
               <div className="kv-strong">{session.pageCount}</div>
             </div>
-
             <div className="info-card">
               <div className="small-label">REDACTIONS</div>
               <div className="kv-strong">{session.redactionCount}</div>
             </div>
           </div>
 
-          <div className="divider" />
-
-          <ul className="meta-list">
-            <li>Processed in browser memory only during this phase</li>
-            <li>Output PDF is rebuilt from rasterized page images</li>
-            <li>Original text layer is not preserved in the clean PDF</li>
+          <ul className="check-list">
+            <li>Session persisted in browser storage so route change does not kill it</li>
+            <li>Output is rebuilt from rasterized page images</li>
+            <li>Original selectable text layer is not preserved</li>
             <li>Review timestamp: {createdAtLabel}</li>
             <li>
               Estimated witnessing revenue opportunity: $
@@ -230,49 +178,40 @@ export default function ReviewPage() {
 
           <div className="hash-box">{session.hash}</div>
 
-          <div className="check-row">
+          <label className="check-row">
             <input
-              id="confirm-redaction"
               type="checkbox"
               checked={confirmed}
               onChange={(event) => setConfirmed(event.target.checked)}
             />
-            <label htmlFor="confirm-redaction" className="list-text">
-              I reviewed the output and confirm the visible redactions are
-              correct. I understand this utility does not replace my legal duty
-              to verify what is being removed before using the clean PDF.
-            </label>
-          </div>
+            <span className="list-text">
+              I reviewed the output and confirm the visible redactions are correct.
+            </span>
+          </label>
 
-          <div className="actions-row">
+          <div className="actions-wrap">
             <button
               type="button"
-              className="primary-btn"
+              className="primary-btn small-btn"
               disabled={!confirmed}
               onClick={handleDownload}
             >
               Download clean PDF
             </button>
-
-            <button
-              type="button"
-              className="danger-btn"
-              onClick={handleClear}
-            >
+            <button type="button" className="secondary-btn small-btn" onClick={handleClear}>
               Clear review session
             </button>
           </div>
 
           {!confirmed ? (
             <div className="warning-box">
-              You must check the confirmation box before download is enabled.
+              Confirm the checkbox before downloading.
             </div>
           ) : null}
 
           {downloaded ? (
             <div className="success-box">
-              Clean PDF downloaded. Dashboard stats were updated locally in this
-              browser.
+              Clean PDF downloaded. Dashboard totals updated in browser storage.
             </div>
           ) : null}
         </div>

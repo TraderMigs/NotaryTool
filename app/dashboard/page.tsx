@@ -2,49 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-type DashboardStats = {
-  totalDocuments: number;
-  totalPages: number;
-  totalRedactions: number;
-  totalWitnessFeesFound: number;
-  lastProcessedAt: string | null;
-};
-
-const DASHBOARD_STORAGE_KEY = "notary-tool-dashboard-stats-v1";
-
-function getDefaultStats(): DashboardStats {
-  return {
-    totalDocuments: 0,
-    totalPages: 0,
-    totalRedactions: 0,
-    totalWitnessFeesFound: 0,
-    lastProcessedAt: null
-  };
-}
-
-function readStats(): DashboardStats {
-  if (typeof window === "undefined") {
-    return getDefaultStats();
-  }
-
-  const raw = window.localStorage.getItem(DASHBOARD_STORAGE_KEY);
-  if (!raw) {
-    return getDefaultStats();
-  }
-
-  try {
-    return JSON.parse(raw) as DashboardStats;
-  } catch {
-    return getDefaultStats();
-  }
-}
+import { DashboardStats, getDefaultStats, readDashboardStats } from "@/lib/runtimeStore";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>(getDefaultStats());
 
   useEffect(() => {
-    setStats(readStats());
+    setStats(readDashboardStats());
   }, []);
 
   const lastProcessedLabel = stats.lastProcessedAt
@@ -52,28 +16,32 @@ export default function DashboardPage() {
     : "No completed downloads yet";
 
   return (
-    <main className="shell">
-      <div className="top-bar">
+    <main className="site-shell">
+      <section className="page-header">
         <div>
           <Link href="/" className="back-link">
             ← Back home
           </Link>
+          <div className="eyebrow">OWNER VIEW</div>
           <h1 className="page-title">Dashboard</h1>
           <p className="muted">
-            This phase tracks simple local browser totals only. Supabase-backed
-            shop analytics comes next.
+            Simple shop-side browser totals for this MVP. Supabase analytics can
+            replace this layer later.
           </p>
         </div>
 
         <div className="actions-wrap">
-          <Link href="/sanitize" className="primary-btn">
+          <Link href="/sanitize" className="primary-btn small-btn">
             Open sanitize
           </Link>
-          <Link href="/review" className="secondary-btn">
+          <Link href="/review" className="secondary-btn small-btn">
             Open review
           </Link>
+          <Link href="/sign-in" className="secondary-btn small-btn">
+            Owner sign in
+          </Link>
         </div>
-      </div>
+      </section>
 
       <section className="stats-grid">
         <article className="stats-card">
@@ -81,39 +49,34 @@ export default function DashboardPage() {
           <div className="stat-value">{stats.totalDocuments}</div>
           <div className="stat-copy">Completed clean downloads on this browser</div>
         </article>
-
         <article className="stats-card">
-          <div className="small-label">PAGES PROCESSED</div>
+          <div className="small-label">PAGES</div>
           <div className="stat-value">{stats.totalPages}</div>
-          <div className="stat-copy">Total pages that passed through review</div>
+          <div className="stat-copy">Pages processed through review</div>
         </article>
-
         <article className="stats-card">
-          <div className="small-label">REDACTION BOXES</div>
+          <div className="small-label">REDACTIONS</div>
           <div className="stat-value">{stats.totalRedactions}</div>
-          <div className="stat-copy">Visual blackouts applied before clean export</div>
+          <div className="stat-copy">Blackout boxes applied before clean export</div>
         </article>
-
         <article className="stats-card">
           <div className="small-label">WITNESS FEES FOUND</div>
           <div className="stat-value">${stats.totalWitnessFeesFound.toFixed(2)}</div>
-          <div className="stat-copy">Simple $5-per-page tally for this MVP phase</div>
+          <div className="stat-copy">Simple $5 tally for the current MVP</div>
         </article>
       </section>
 
-      <section className="panel" style={{ marginTop: 18 }}>
-        <h2>What this phase proves</h2>
-        <ul className="meta-list">
-          <li>The upload and review workflow works in the browser</li>
-          <li>The output PDF is rebuilt as a new image-only document</li>
-          <li>The hash is generated for audit reference</li>
-          <li>The counter-top operator gets a fast path from upload to clean file</li>
-          <li>The fee story is visible now, even before full shop analytics</li>
+      <section className="panel">
+        <div className="eyebrow">WHY THIS MATTERS</div>
+        <h2 className="panel-title">A cleaner owner story</h2>
+        <ul className="check-list">
+          <li>Fast proof that the file moved through a privacy step</li>
+          <li>Clear tally for the witnessing fee story</li>
+          <li>Nothing overwhelming on the screen</li>
+          <li>Built for a real desk workflow, not a demo fantasy</li>
         </ul>
 
-        <div className="success-box">
-          Last processed: {lastProcessedLabel}
-        </div>
+        <div className="success-box">Last processed: {lastProcessedLabel}</div>
       </section>
     </main>
   );
