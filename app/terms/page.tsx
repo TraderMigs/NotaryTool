@@ -1,25 +1,12 @@
-import PublicFooter from "../../components/PublicFooter";
-import PublicHeader from "../../components/PublicHeader";
+import LegalPage from "@/components/LegalPage";
 
 export default function TermsPage() {
   return (
-    <main className="page-shell">
-      <section className="section-shell">
-        <div className="panel legal-panel">
-          <PublicHeader />
-          <div className="legal-wrap">
-            <div className="eyebrow">Terms</div>
-            <h1 className="section-title">Use the utility responsibly</h1>
-
-<p className="page-text">Specterfy is not a journal, not a RON platform, not a legal decision engine, and not a government-approved provider. It is a workflow utility used before later handling stages.</p>
-
-          </div>
-        </div>
-      </section>
-
-      <div className="section-shell">
-        <PublicFooter />
-      </div>
-    </main>
+    <LegalPage
+      label="Terms"
+      title="Use the utility responsibly."
+      intro="Specterfy helps prepare cleaner copies before later workflow handling. It does not replace user judgment or legal obligations."
+      points=[{"'Not a journal or RON platform.','Not legal advice or a compliance guarantee.','Users remain responsible for suitability, review, and use.'"}]
+    />
   );
 }

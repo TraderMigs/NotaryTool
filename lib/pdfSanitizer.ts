@@ -177,7 +177,7 @@ export async function sanitizePdfWithRasterization(params: {
     )
   );
 
-  const blob = new Blob([new Uint8Array(cleanBuffer)], { type: "application/pdf" });
+  const blob = new Blob([cleanBytes], { type: "application/pdf" });
   const base64 = await blobToBase64(blob);
   const hash = await sha256FromBuffer(cleanBuffer);
 

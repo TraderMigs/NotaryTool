@@ -1,30 +1,52 @@
-import PublicFooter from "../../components/PublicFooter";
-import PublicHeader from "../../components/PublicHeader";
+import Link from "next/link";
+import PublicFooter from "@/components/PublicFooter";
+import PublicHeader from "@/components/PublicHeader";
 
 export default function PricingPage() {
   return (
-    <main className="page-shell">
-      <section className="section-shell">
-        <div className="panel legal-panel">
-          <PublicHeader />
-          <div className="legal-wrap">
-            <div className="eyebrow">Pricing</div>
-            <h1 className="section-title">Simple plans</h1>
+    <main className="shell">
+      <section className="hero-panel hero-panel-legal">
+        <PublicHeader compact />
+        <div className="pricing-page-head">
+          <span className="eyebrow">Pricing</span>
+          <h1 className="legal-title">Clear plans. No noise.</h1>
+          <p className="hero-support hero-support-legal">
+            Free access for testing. Clean paid paths for unlimited usage once the
+            full account system is wired.
+          </p>
+        </div>
 
-<div className="pricing-inline spacious">
-  <div className="pricing-pill"><strong>Free</strong><span>5 sanitizes/day</span></div>
-  <div className="pricing-pill"><strong>$14/mo</strong><span>Unlimited</span></div>
-  <div className="pricing-pill"><strong>$97/yr</strong><span>Unlimited</span></div>
-</div>
-<p className="page-text">Paid checkout and entitlement verification are part of the next build phase.</p>
+        <div className="plan-grid">
+          <article className="plan-card">
+            <span className="micro-label">Starter</span>
+            <h2>Free</h2>
+            <p>5 sanitizes per day</p>
+            <Link href="/signup" className="button button-secondary button-block">
+              Start free
+            </Link>
+          </article>
 
-          </div>
+          <article className="plan-card plan-card-featured">
+            <span className="micro-label">Monthly</span>
+            <h2>$14</h2>
+            <p>Unlimited sanitization</p>
+            <Link href="/signup" className="button button-primary button-block">
+              Choose monthly
+            </Link>
+          </article>
+
+          <article className="plan-card">
+            <span className="micro-label">Yearly</span>
+            <h2>$97</h2>
+            <p>Unlimited sanitization</p>
+            <Link href="/signup" className="button button-secondary button-block">
+              Choose yearly
+            </Link>
+          </article>
         </div>
       </section>
 
-      <div className="section-shell">
-        <PublicFooter />
-      </div>
+      <PublicFooter />
     </main>
   );
 }
