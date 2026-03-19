@@ -84,6 +84,10 @@ export default function SanitizePage() {
     return Object.values(pageRectsMap).reduce((sum, rects) => sum + rects.length, 0);
   }, [pageRectsMap]);
 
+  const estimatedWitnessFees = useMemo(() => {
+    return pageCount * 5;
+  }, [pageCount]);
+
   const liveDraftRect = useMemo(() => buildDraftRect(pointerDraft), [pointerDraft]);
 
   async function getPdfJs(): Promise<PdfJsModule> {
@@ -362,6 +366,17 @@ export default function SanitizePage() {
             <div className="small-label">BOXES</div>
             <div className="kv-strong">{totalRedactions}</div>
           </div>
+        </div>
+
+        <div className="fee-opportunity-card">
+          <div>
+            <div className="small-label fee-label">WITNESS FEE OPPORTUNITY</div>
+            <div className="fee-opportunity-title">Keep this fee visible while staff work</div>
+            <div className="fee-opportunity-copy">
+              Simple MVP estimate using the current page count rule so the fee signal does not get missed.
+            </div>
+          </div>
+          <div className="fee-opportunity-amount">+${estimatedWitnessFees.toFixed(2)}</div>
         </div>
 
         <div className="progress-wrap">

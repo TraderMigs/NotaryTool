@@ -1,0 +1,1 @@
+Replace the two files in this zip into your repo, then append the CSS block in PATCH-CSS-APPEND.txt to the bottom of app/globals.css. Commit and let Vercel deploy.

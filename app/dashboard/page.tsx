@@ -70,9 +70,9 @@ export default function DashboardPage() {
           <div className="stat-value">{stats.totalRedactions}</div>
           <div className="stat-copy">Blackout boxes applied before clean export</div>
         </article>
-        <article className="stats-card">
-          <div className="small-label">WITNESS FEES FOUND</div>
-          <div className="stat-value">${stats.totalWitnessFeesFound.toFixed(2)}</div>
+        <article className="stats-card fee-stats-card">
+          <div className="small-label fee-label">WITNESS FEES FOUND</div>
+          <div className="stat-value fee-stat-value">${stats.totalWitnessFeesFound.toFixed(2)}</div>
           <div className="stat-copy">Simple $5 tally for the current MVP</div>
         </article>
       </section>
