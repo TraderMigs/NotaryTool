@@ -7,7 +7,7 @@ import {
   PageRectsMap,
   sanitizePdfWithRasterization
 } from "@/lib/pdfSanitizer";
-import { saveReviewSession } from "@/lib/runtimeStore";
+import { createSessionId, saveReviewSession } from "@/lib/runtimeStore";
 
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 
@@ -290,6 +290,7 @@ export default function SanitizePage() {
       });
 
       saveReviewSession({
+        sessionId: createSessionId(),
         originalFileName: file.name,
         cleanFileName: result.cleanFileName,
         hash: result.hash,

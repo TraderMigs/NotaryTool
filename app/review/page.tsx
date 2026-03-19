@@ -6,7 +6,8 @@ import {
   ReviewSession,
   addSessionToDashboard,
   clearReviewSession,
-  getReviewSession
+  getReviewSession,
+  hasSessionBeenRecorded
 } from "@/lib/runtimeStore";
 
 function base64ToBlob(base64: string): Blob {
@@ -25,23 +26,25 @@ export default function ReviewPage() {
   const [pdfUrl, setPdfUrl] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
-  const [recorded, setRecorded] = useState(false);
+  const [alreadyRecorded, setAlreadyRecorded] = useState(false);
 
   useEffect(() => {
     const loaded = getReviewSession();
     setSession(loaded);
 
-    if (loaded?.cleanPdfBase64) {
-      const blob = base64ToBlob(loaded.cleanPdfBase64);
-      const objectUrl = URL.createObjectURL(blob);
-      setPdfUrl(objectUrl);
-
-      return () => {
-        URL.revokeObjectURL(objectUrl);
-      };
+    if (!loaded?.cleanPdfBase64) {
+      return undefined;
     }
 
-    return undefined;
+    setAlreadyRecorded(hasSessionBeenRecorded(loaded.sessionId));
+
+    const blob = base64ToBlob(loaded.cleanPdfBase64);
+    const objectUrl = URL.createObjectURL(blob);
+    setPdfUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
   }, []);
 
   const createdAtLabel = useMemo(() => {
@@ -59,11 +62,8 @@ export default function ReviewPage() {
     link.click();
     document.body.removeChild(link);
 
-    if (!recorded) {
-      addSessionToDashboard(session);
-      setRecorded(true);
-    }
-
+    const newlyRecorded = addSessionToDashboard(session);
+    setAlreadyRecorded(!newlyRecorded);
     setDownloaded(true);
   }
 
@@ -73,7 +73,7 @@ export default function ReviewPage() {
     setPdfUrl("");
     setConfirmed(false);
     setDownloaded(false);
-    setRecorded(false);
+    setAlreadyRecorded(false);
   }
 
   if (!session || !pdfUrl) {
@@ -166,7 +166,8 @@ export default function ReviewPage() {
           </div>
 
           <ul className="check-list">
-            <li>Session persisted in browser storage so route change does not kill it</li>
+            <li>Session is stored in browser storage so refresh does not kill review</li>
+            <li>Dashboard totals record one time per sanitized session only</li>
             <li>Output is rebuilt from rasterized page images</li>
             <li>Original selectable text layer is not preserved</li>
             <li>Review timestamp: {createdAtLabel}</li>
@@ -211,7 +212,9 @@ export default function ReviewPage() {
 
           {downloaded ? (
             <div className="success-box">
-              Clean PDF downloaded. Dashboard totals updated in browser storage.
+              {alreadyRecorded
+                ? "Clean PDF downloaded again. Dashboard totals were not duplicated."
+                : "Clean PDF downloaded. Dashboard totals updated in browser storage."}
             </div>
           ) : null}
         </div>

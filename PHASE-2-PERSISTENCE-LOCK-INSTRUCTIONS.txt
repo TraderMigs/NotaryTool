@@ -1,0 +1,49 @@
+NOTARYTOOL SURGICAL UPDATE - PERSISTENCE LOCK
+
+WHAT THIS UPDATE DOES
+- Keeps sanitize -> review state in browser localStorage
+- Prevents dashboard double-counting when the same clean PDF is downloaded more than once
+- Keeps dashboard numbers current when browser tab regains focus
+- Leaves product positioned as a utility, not a journal platform
+
+FILES CHANGED
+- lib/runtimeStore.ts
+- app/sanitize/page.tsx
+- app/review/page.tsx
+- app/dashboard/page.tsx
+
+GITHUB DIRECT LINKS
+- Repo: https://github.com/TraderMigs/NotaryTool
+- Upload page after merge: https://github.com/TraderMigs/NotaryTool/upload/main
+- runtimeStore file path: https://github.com/TraderMigs/NotaryTool/blob/main/lib/runtimeStore.ts
+- sanitize page path: https://github.com/TraderMigs/NotaryTool/blob/main/app/sanitize/page.tsx
+- review page path: https://github.com/TraderMigs/NotaryTool/blob/main/app/review/page.tsx
+- dashboard page path: https://github.com/TraderMigs/NotaryTool/blob/main/app/dashboard/page.tsx
+- Vercel project: https://vercel.com/migs-projects-b6fae86b/notary-tool
+- Supabase project: https://supabase.com/dashboard/project/ikhvtktvsvtfmzyrypto
+
+IMPORTANT NOTE
+This environment cannot create a real GitHub commit in your repo, so there is no honest way for me to give you an actual commit link. I am giving you the exact repo/file links plus the full replacement zip instead.
+
+WHAT TO DO NEXT
+1. Open the repo upload screen.
+2. Replace the changed files with the versions from this zip.
+3. Commit with this message:
+   Phase 2 persistence lock fix for sanitize review dashboard flow
+4. Let Vercel redeploy.
+5. Test this exact flow on the live site:
+   - upload PDF
+   - draw at least 1 box
+   - sanitize
+   - review page loads
+   - refresh review page
+   - confirm it still stays loaded
+   - download clean PDF once
+   - open dashboard and confirm totals increase
+   - download same clean PDF again
+   - confirm dashboard totals do not increase a second time
+
+EXPECTED RESULT
+- Review should survive refresh
+- Dashboard should persist
+- Same session should only count once

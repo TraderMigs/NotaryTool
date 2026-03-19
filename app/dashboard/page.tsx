@@ -8,7 +8,18 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>(getDefaultStats());
 
   useEffect(() => {
-    setStats(readDashboardStats());
+    const refreshStats = () => {
+      setStats(readDashboardStats());
+    };
+
+    refreshStats();
+    window.addEventListener("storage", refreshStats);
+    window.addEventListener("focus", refreshStats);
+
+    return () => {
+      window.removeEventListener("storage", refreshStats);
+      window.removeEventListener("focus", refreshStats);
+    };
   }, []);
 
   const lastProcessedLabel = stats.lastProcessedAt
@@ -47,7 +58,7 @@ export default function DashboardPage() {
         <article className="stats-card">
           <div className="small-label">DOCUMENTS</div>
           <div className="stat-value">{stats.totalDocuments}</div>
-          <div className="stat-copy">Completed clean downloads on this browser</div>
+          <div className="stat-copy">Completed clean downloads recorded once per session</div>
         </article>
         <article className="stats-card">
           <div className="small-label">PAGES</div>
