@@ -1,37 +1,78 @@
-import PublicFooter from "./PublicFooter";
-import PublicHeader from "./PublicHeader";
+import PublicHeader from './PublicHeader'
+import PublicFooter from './PublicFooter'
 
-type LegalPageProps = {
-  label: string;
-  title: string;
-  intro: string;
-  paragraphs: string[];
-};
+interface Section {
+  title: string
+  content: string | string[]
+}
+
+interface LegalPageProps {
+  type: 'privacy' | 'terms' | 'disclaimer'
+  title: string
+  subtitle: string
+  updated: string
+  intro?: string
+  notice?: string
+  sections: Section[]
+}
 
 export default function LegalPage({
-  label,
+  type,
   title,
+  subtitle,
+  updated,
   intro,
-  paragraphs,
+  notice,
+  sections,
 }: LegalPageProps) {
   return (
-    <main className="site-shell legal-shell">
+    <>
       <PublicHeader />
-      <section className="legal-hero">
-        <div className="update-pill">{label}</div>
-        <h1 className="legal-title">{title}</h1>
-        <p className="legal-intro">{intro}</p>
-      </section>
+      <main className="page-wrap">
+        <div className="container">
+          <div className="legal-page">
 
-      <section className="legal-body">
-        {paragraphs.map((paragraph, index) => (
-          <p key={index} className="legal-paragraph">
-            {paragraph}
-          </p>
-        ))}
-      </section>
+            <div className="legal-header">
+              <span className="label">{subtitle}</span>
+              <h1 className="legal-title">{title}</h1>
+              <p className="legal-updated">Last updated: {updated}</p>
+            </div>
 
+            <div className="legal-body">
+
+              {notice && (
+                <div className="legal-disclaimer-box">
+                  <p>{notice}</p>
+                </div>
+              )}
+
+              {intro && (
+                <section>
+                  <p>{intro}</p>
+                </section>
+              )}
+
+              {sections.map((s, i) => (
+                <section key={i}>
+                  <h2>{s.title}</h2>
+                  {Array.isArray(s.content) ? (
+                    <ul>
+                      {s.content.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{s.content}</p>
+                  )}
+                </section>
+              ))}
+
+            </div>
+
+          </div>
+        </div>
+      </main>
       <PublicFooter />
-    </main>
-  );
+    </>
+  )
 }

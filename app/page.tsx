@@ -1,113 +1,184 @@
-import Link from "next/link";
-import PublicFooter from "@/components/PublicFooter";
-import PublicHeader from "@/components/PublicHeader";
+import Link from 'next/link'
+import PublicHeader from '../components/PublicHeader'
+import PublicFooter from '../components/PublicFooter'
 
 export default function HomePage() {
   return (
-    <main className="shell">
-      <section className="hero-panel">
-        <PublicHeader />
+    <>
+      <PublicHeader />
 
-        <div className="update-strip">
-          <span className="update-dot" />
-          <span>Pennsylvania update</span>
-          <span className="update-divider" />
-          <span>March 28, 2026</span>
-        </div>
+      <main className="page-wrap">
 
-        <section className="hero-layout">
-          <div className="hero-copy">
-            <span className="eyebrow">PA Notary Privacy Pre-Processor</span>
-            <h1 className="hero-title">
-              Clean sensitive PDFs before they become a workflow liability.
-            </h1>
-            <p className="hero-support">
-              A sleek pre-ingestion privacy utility built to help Pennsylvania
-              notaries create cleaner copies before documents move into later
-              handling.
+        {/* ── HERO ─────────────────────────── */}
+        <section className="hero-section">
+          <div className="container">
+
+            <div className="hero-pa-pill">
+              <span className="hero-pa-dot" />
+              <span className="hero-pa-text">
+                Pennsylvania update
+                <span className="hero-pa-date"> &nbsp;March 28, 2026</span>
+              </span>
+            </div>
+
+            <div className="hero-headline-glow">
+              <h1 className="hero-headline">
+                Clean sensitive PDFs<br />
+                before they become<br />
+                a workflow liability.
+              </h1>
+            </div>
+
+            <p className="hero-sub">
+              A pre-ingestion privacy utility for Pennsylvania notaries.
+              Sanitize. Review. Move clean.
             </p>
 
-            <div className="hero-actions">
-              <Link href="/signup" className="button button-primary">
-                Start free
-              </Link>
-              <Link href="/pricing" className="button button-secondary">
-                View pricing
-              </Link>
+            <div className="hero-ctas">
+              <Link href="/signup" className="btn-primary">Start free</Link>
+              <Link href="/pricing" className="btn-secondary">View pricing</Link>
             </div>
 
-            <div className="pill-row">
-              <span className="pill">5 sanitizes/day free</span>
-              <span className="pill">$14 monthly</span>
-              <span className="pill">$97 yearly</span>
+            <div className="hero-pills">
+              <span className="hero-pill">5 sanitizes/day free</span>
+              <span className="hero-pill">$14/mo unlimited</span>
+              <span className="hero-pill">$97/yr unlimited</span>
             </div>
+
           </div>
-
-          <aside className="hero-aside">
-            <span className="eyebrow">What it is</span>
-            <h2 className="aside-title">
-              Serious utility. Cleaner positioning. Lower visual friction.
-            </h2>
-            <ul className="clean-list">
-              <li>Privacy pre-processor</li>
-              <li>Document sanitization utility</li>
-              <li>Clean-copy generator</li>
-              <li>Workflow helper</li>
-            </ul>
-          </aside>
         </section>
-      </section>
 
-      <section className="flow-band">
-        <div>
-          <span className="eyebrow">Why it matters</span>
-          <h2 className="section-title">
-            Less clutter. Better operator focus. Stronger first impression.
-          </h2>
-        </div>
+        {/* ── WHAT IT IS ───────────────────── */}
+        <section className="what-section">
+          <div className="container">
+            <div className="what-grid">
 
-        <div className="flow-grid">
-          <article className="micro-card">
-            <span className="micro-label">01</span>
-            <h3>Cleaner front-end handling</h3>
-            <p>Reduce exposure before documents move deeper into workflow.</p>
-          </article>
-          <article className="micro-card">
-            <span className="micro-label">02</span>
-            <h3>Sharper public posture</h3>
-            <p>Utility-first framing instead of bloated platform language.</p>
-          </article>
-          <article className="micro-card">
-            <span className="micro-label">03</span>
-            <h3>Fast path to action</h3>
-            <p>Simple account flow, clear pricing, and direct entry points.</p>
-          </article>
-        </div>
-      </section>
+              <div>
+                <p className="label" style={{ marginBottom: '28px' }}>What it is</p>
+                <h2 className="what-statement">
+                  Serious utility.<br />
+                  Cleaner positioning.<br />
+                  Lower visual friction.
+                </h2>
+              </div>
 
-      <section className="pricing-band">
-        <div className="pricing-copy">
-          <span className="eyebrow">Pricing</span>
-          <h2 className="section-title">Simple entry. Clean upgrade path.</h2>
-        </div>
+              <div>
+                <div className="what-descriptors">
+                  <div className="what-item">
+                    <span className="what-num">01</span>
+                    <span className="what-text">Privacy pre-processor</span>
+                  </div>
+                  <div className="what-item">
+                    <span className="what-num">02</span>
+                    <span className="what-text">Document sanitization utility</span>
+                  </div>
+                  <div className="what-item">
+                    <span className="what-num">03</span>
+                    <span className="what-text">Clean-copy generator</span>
+                  </div>
+                  <div className="what-item">
+                    <span className="what-num">04</span>
+                    <span className="what-text">Workflow helper</span>
+                  </div>
+                </div>
+              </div>
 
-        <div className="pricing-inline">
-          <div className="price-chip">
-            <strong>Free</strong>
-            <span>5 sanitizes/day</span>
+            </div>
           </div>
-          <div className="price-chip">
-            <strong>$14/mo</strong>
-            <span>Unlimited</span>
+        </section>
+
+        {/* ── WHY IT MATTERS ───────────────── */}
+        <section className="why-section">
+          <div className="container">
+
+            <div className="why-header">
+              <p className="label" style={{ marginBottom: '16px' }}>Why it matters</p>
+              <h2 className="why-headline">
+                Less clutter.<br />
+                Stronger first impression.
+              </h2>
+            </div>
+
+            <div className="why-grid">
+              <div className="why-item">
+                <div className="why-num">01</div>
+                <div className="why-title">Cleaner front-end handling</div>
+                <p className="why-body">
+                  Reduce exposure before documents move deeper into your workflow.
+                </p>
+              </div>
+              <div className="why-item">
+                <div className="why-num">02</div>
+                <div className="why-title">Sharper public posture</div>
+                <p className="why-body">
+                  Utility-first framing instead of bloated platform language.
+                </p>
+              </div>
+              <div className="why-item">
+                <div className="why-num">03</div>
+                <div className="why-title">Fast path to action</div>
+                <p className="why-body">
+                  Simple account flow, clear pricing, direct entry points.
+                </p>
+              </div>
+            </div>
+
           </div>
-          <div className="price-chip">
-            <strong>$97/yr</strong>
-            <span>Unlimited</span>
+        </section>
+
+        {/* ── PRICING STRIP ────────────────── */}
+        <section className="pricing-section">
+          <div className="container">
+
+            <div className="pricing-header">
+              <p className="label" style={{ marginBottom: '16px' }}>Pricing</p>
+              <h2 className="pricing-headline">Simple entry. Clean upgrade path.</h2>
+              <p className="pricing-sub">
+                Free access for testing. Clean paid paths for unlimited usage once the full account system is live.
+              </p>
+            </div>
+
+            <div className="pricing-cards">
+              <div className="pricing-card">
+                <div className="pricing-badge">Starter</div>
+                <div className="pricing-price">Free</div>
+                <p className="pricing-desc">5 sanitizes per day. No card required.</p>
+                <Link href="/signup" className="btn-secondary" style={{ marginTop: 'auto' }}>
+                  Start free
+                </Link>
+              </div>
+
+              <div className="pricing-card featured">
+                <div className="pricing-badge">Monthly</div>
+                <div className="pricing-price">
+                  $14
+                  <span className="pricing-per">/mo</span>
+                </div>
+                <p className="pricing-desc">Unlimited sanitization. Full access.</p>
+                <Link href="/pricing" className="btn-primary btn-full" style={{ marginTop: 'auto' }}>
+                  Choose monthly
+                </Link>
+              </div>
+
+              <div className="pricing-card">
+                <div className="pricing-badge">Yearly</div>
+                <div className="pricing-price">
+                  $97
+                  <span className="pricing-per">/yr</span>
+                </div>
+                <p className="pricing-desc">Unlimited sanitization. Best value.</p>
+                <Link href="/pricing" className="btn-secondary" style={{ marginTop: 'auto' }}>
+                  Choose yearly
+                </Link>
+              </div>
+            </div>
+
           </div>
-        </div>
-      </section>
+        </section>
+
+      </main>
 
       <PublicFooter />
-    </main>
-  );
+    </>
+  )
 }

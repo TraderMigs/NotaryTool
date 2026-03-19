@@ -1,52 +1,122 @@
-import Link from "next/link";
-import PublicFooter from "@/components/PublicFooter";
-import PublicHeader from "@/components/PublicHeader";
+import Link from 'next/link'
+import type { Metadata } from 'next'
+import PublicHeader from '../../components/PublicHeader'
+import PublicFooter from '../../components/PublicFooter'
+
+export const metadata: Metadata = {
+  title: 'Pricing — Specterfy',
+  description: 'Simple, transparent pricing for Specterfy. Free to start. Unlimited at $14/mo or $97/yr.',
+}
 
 export default function PricingPage() {
   return (
-    <main className="shell">
-      <section className="hero-panel hero-panel-legal">
-        <PublicHeader compact />
-        <div className="pricing-page-head">
-          <span className="eyebrow">Pricing</span>
-          <h1 className="legal-title">Clear plans. No noise.</h1>
-          <p className="hero-support hero-support-legal">
-            Free access for testing. Clean paid paths for unlimited usage once the
-            full account system is wired.
-          </p>
+    <>
+      <PublicHeader />
+
+      <main className="page-wrap">
+        <div className="container">
+
+          <div className="pricing-page-hero">
+            <p className="label" style={{ marginBottom: '16px' }}>Pricing</p>
+            <h1 style={{
+              fontFamily: 'var(--syne, sans-serif)',
+              fontSize: 'clamp(40px, 6vw, 68px)',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              marginBottom: '16px',
+            }}>
+              Clear plans.<br />No noise.
+            </h1>
+            <p style={{ fontSize: '16px', color: 'var(--text-muted)', maxWidth: '400px' }}>
+              Free access for testing. Clean paid paths for unlimited usage once the full account system is wired.
+            </p>
+          </div>
+
+          <div className="rule" />
+
+          <div style={{ padding: '64px 0' }}>
+            <div className="pricing-cards">
+
+              <div className="pricing-card">
+                <div className="pricing-badge">Starter</div>
+                <div className="pricing-price">Free</div>
+                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
+                  5 sanitizes per day. No payment required.
+                  Good for evaluating the workflow.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>5 sanitizes/day</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Account access</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Standard output quality</span>
+                </div>
+                <Link href="/signup" className="btn-secondary btn-full" style={{ marginTop: 'auto' }}>
+                  Start free
+                </Link>
+              </div>
+
+              <div className="pricing-card featured">
+                <div className="pricing-badge">Monthly</div>
+                <div className="pricing-price">
+                  $14
+                  <span className="pricing-per">/mo</span>
+                </div>
+                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
+                  Unlimited sanitization. Full account access.
+                  No daily cap.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Unlimited sanitizes</span>
+                  <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Full account access</span>
+                  <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Cancel anytime</span>
+                </div>
+                <Link href="/signup?plan=monthly" className="btn-primary btn-full" style={{ marginTop: 'auto' }}>
+                  Choose monthly
+                </Link>
+              </div>
+
+              <div className="pricing-card">
+                <div className="pricing-badge">Yearly</div>
+                <div className="pricing-price">
+                  $97
+                  <span className="pricing-per">/yr</span>
+                </div>
+                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
+                  Unlimited sanitization. Best annual rate.
+                  Equivalent to $8.08/mo.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Unlimited sanitizes</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Full account access</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Best value</span>
+                </div>
+                <Link href="/signup?plan=yearly" className="btn-secondary btn-full" style={{ marginTop: 'auto' }}>
+                  Choose yearly
+                </Link>
+              </div>
+
+            </div>
+
+            <p className="pricing-note" style={{ marginTop: '32px', textAlign: 'center', fontSize: '13px', color: 'var(--text-faint)' }}>
+              Paid plans require account verification. Billing activates only after payment is confirmed.
+              You remain responsible for final review of all outputs.
+            </p>
+          </div>
+
+          <div className="rule" />
+
+          <div style={{ padding: '56px 0', maxWidth: '560px' }}>
+            <p className="label" style={{ marginBottom: '14px' }}>Important</p>
+            <p style={{ fontSize: '15px', color: 'var(--text-muted)', lineHeight: '1.75' }}>
+              Specterfy is a privacy pre-processing utility. It is not a notary platform,
+              journal, or compliance guarantee. Users remain responsible for reviewing all outputs
+              and ensuring downstream handling meets applicable obligations.
+            </p>
+          </div>
+
         </div>
-
-        <div className="plan-grid">
-          <article className="plan-card">
-            <span className="micro-label">Starter</span>
-            <h2>Free</h2>
-            <p>5 sanitizes per day</p>
-            <Link href="/signup" className="button button-secondary button-block">
-              Start free
-            </Link>
-          </article>
-
-          <article className="plan-card plan-card-featured">
-            <span className="micro-label">Monthly</span>
-            <h2>$14</h2>
-            <p>Unlimited sanitization</p>
-            <Link href="/signup" className="button button-primary button-block">
-              Choose monthly
-            </Link>
-          </article>
-
-          <article className="plan-card">
-            <span className="micro-label">Yearly</span>
-            <h2>$97</h2>
-            <p>Unlimited sanitization</p>
-            <Link href="/signup" className="button button-secondary button-block">
-              Choose yearly
-            </Link>
-          </article>
-        </div>
-      </section>
+      </main>
 
       <PublicFooter />
-    </main>
-  );
+    </>
+  )
 }
