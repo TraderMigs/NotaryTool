@@ -1,4 +1,4 @@
-import LegalPage from "@/components/LegalPage";
+import LegalPage from "../../components/LegalPage";
 
 export default function DisclaimerPage() {
   return (
@@ -6,7 +6,11 @@ export default function DisclaimerPage() {
       label="Disclaimer"
       title="Tight positioning. Clear boundaries."
       intro="The product is intentionally framed as a workflow helper and pre-ingestion privacy step."
-      points=[{"'Not government-approved provider language.','Not a seal, ID verification, or notarization system.','No guarantee of compliance, outcome, or legal sufficiency.'"}]
+      paragraphs={[
+        "Specterfy does not provide legal advice, notarizations, identity verification, or compliance guarantees.",
+        "The product should not be represented as a state-approved provider or as a substitute for user review and professional judgment.",
+        "All claims, descriptions, and user expectations should remain narrow, practical, and accurate."
+      ]}
     />
   );
 }

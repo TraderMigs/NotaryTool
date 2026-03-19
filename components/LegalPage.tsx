@@ -5,32 +5,30 @@ type LegalPageProps = {
   label: string;
   title: string;
   intro: string;
-  points: string[];
+  paragraphs: string[];
 };
 
 export default function LegalPage({
   label,
   title,
   intro,
-  points,
+  paragraphs,
 }: LegalPageProps) {
   return (
-    <main className="shell">
-      <section className="hero-panel hero-panel-legal">
-        <PublicHeader compact />
-        <div className="legal-wrap">
-          <span className="eyebrow">{label}</span>
-          <h1 className="legal-title">{title}</h1>
-          <p className="hero-support hero-support-legal">{intro}</p>
+    <main className="site-shell legal-shell">
+      <PublicHeader />
+      <section className="legal-hero">
+        <div className="update-pill">{label}</div>
+        <h1 className="legal-title">{title}</h1>
+        <p className="legal-intro">{intro}</p>
+      </section>
 
-          <div className="legal-list">
-            {points.map((point) => (
-              <div key={point} className="legal-item">
-                {point}
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="legal-body">
+        {paragraphs.map((paragraph, index) => (
+          <p key={index} className="legal-paragraph">
+            {paragraph}
+          </p>
+        ))}
       </section>
 
       <PublicFooter />
