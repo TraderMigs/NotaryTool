@@ -1,26 +1,25 @@
-import PublicFooter from "@/components/PublicFooter";
-import PublicHeader from "@/components/PublicHeader";
+import PublicFooter from "../../components/PublicFooter";
+import PublicHeader from "../../components/PublicHeader";
 
 export default function TermsPage() {
   return (
-    <main className="sf-shell">
-      <section className="sf-hero-wrap">
-        <PublicHeader />
-        <div className="sf-legal-card">
-          <span className="sf-eyebrow">TERMS OF SERVICE</span>
-          <h1 className="sf-h2">Use the utility responsibly.</h1>
-          <p className="sf-body">
-            Specterfy is a document sanitization utility and workflow helper. It is not a journal,
-            not a RON platform, not a legal decision engine, and not a government-approved provider.
-          </p>
-          <p className="sf-body">
-            Users remain responsible for document review, legal use, workflow handling, and downstream decisions.
-            The tool does not guarantee compliance, admissibility, or outcome.
-          </p>
+    <main className="page-shell">
+      <section className="section-shell">
+        <div className="panel legal-panel">
+          <PublicHeader />
+          <div className="legal-wrap">
+            <div className="eyebrow">Terms</div>
+            <h1 className="section-title">Use the utility responsibly</h1>
+
+<p className="page-text">Specterfy is not a journal, not a RON platform, not a legal decision engine, and not a government-approved provider. It is a workflow utility used before later handling stages.</p>
+
+          </div>
         </div>
       </section>
 
-      <PublicFooter />
+      <div className="section-shell">
+        <PublicFooter />
+      </div>
     </main>
   );
 }

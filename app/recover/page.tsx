@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function RecoverAliasPage() {
+export default function RecoverPage() {
   redirect("/forgot");
 }

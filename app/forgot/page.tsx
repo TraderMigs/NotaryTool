@@ -1,32 +1,36 @@
 import Link from "next/link";
-import PublicHeader from "@/components/PublicHeader";
+import PublicHeader from "../../components/PublicHeader";
 
 export default function ForgotPage() {
   return (
-    <main className="sf-shell">
-      <section className="sf-hero-wrap sf-auth-wrap">
-        <PublicHeader ctaHref="/login" ctaLabel="Log in" />
+    <main className="page-shell">
+      <section className="section-shell">
+        <div className="panel auth-panel">
+          <PublicHeader />
+          <div className="auth-wrap">
+            <div className="update-banner compact-banner">
+              <span className="update-dot" />
+              <span>March 28, 2026 update</span>
+            </div>
+            <div className="eyebrow">Password recovery</div>
+            <h1 className="section-title">Reset access</h1>
+            <p className="page-text">Request a reset link. Final email flow wiring comes next.</p>
 
-        <div className="sf-auth-card">
-          <span className="sf-eyebrow">PASSWORD RECOVERY</span>
-          <h1 className="sf-h2">Reset account access</h1>
-          <p className="sf-body">
-            Enter your email to continue the recovery flow.
-          </p>
+            <form className="auth-form">
 
-          <form className="sf-form">
-            <label className="sf-field">
-              <span>Email</span>
-              <input type="email" placeholder="you@example.com" />
-            </label>
+<label className="field">
+  <span>Email</span>
+  <input type="email" placeholder="you@example.com" />
+</label>
 
-            <button type="button" className="sf-btn sf-btn-primary sf-btn-full">
-              Send reset link
-            </button>
-          </form>
+              <button type="button" className="button button-primary button-full">Send reset link</button>
+            </form>
 
-          <div className="sf-inline-links">
-            <Link href="/login" className="sf-text-link">Back to login</Link>
+            <div className="sub-links">
+
+<Link href="/login">Back to log in</Link>
+
+            </div>
           </div>
         </div>
       </section>

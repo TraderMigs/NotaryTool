@@ -1,38 +1,22 @@
-import Image from "next/image";
 import Link from "next/link";
 
-type PublicHeaderProps = {
-  ctaHref?: string;
-  ctaLabel?: string;
-};
-
-export default function PublicHeader({
-  ctaHref = "/signup",
-  ctaLabel = "Start free",
-}: PublicHeaderProps) {
+export default function PublicHeader() {
   return (
-    <header className="sf-header">
-      <Link href="/" className="sf-brand" aria-label="Specterfy home">
-        <Image
-          src="/specterfy-logo.png"
-          alt="Specterfy logo"
-          width={170}
-          height={55}
-          className="sf-brand-logo"
-          priority
-        />
-        <div className="sf-brand-copy">
-          <span className="sf-eyebrow">PRIVACY PRE-PROCESSOR</span>
-          <span className="sf-brand-name">Specterfy</span>
-        </div>
+    <header className="site-header">
+      <Link href="/" className="brand" aria-label="Specterfy home">
+        <span className="brand-mark" aria-hidden="true">
+          <span className="brand-mark-core" />
+        </span>
+        <span className="brand-copy">
+          <span className="brand-kicker">Privacy Pre-Processor</span>
+          <span className="brand-name">Specterfy</span>
+        </span>
       </Link>
 
-      <nav className="sf-nav">
-        <Link href="/pricing" className="sf-nav-link">Pricing</Link>
-        <Link href="/login" className="sf-nav-link">Log in</Link>
-        <Link href={ctaHref} className="sf-btn sf-btn-primary sf-btn-sm">
-          {ctaLabel}
-        </Link>
+      <nav className="site-nav">
+        <Link href="/pricing" className="nav-link">Pricing</Link>
+        <Link href="/login" className="nav-link">Log in</Link>
+        <Link href="/signup" className="button button-primary nav-cta">Start free</Link>
       </nav>
     </header>
   );

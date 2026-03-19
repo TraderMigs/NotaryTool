@@ -1,55 +1,41 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import PublicHeader from "@/components/PublicHeader";
+import PublicHeader from "../../components/PublicHeader";
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
-
   return (
-    <main className="sf-shell">
-      <section className="sf-hero-wrap sf-auth-wrap">
-        <PublicHeader ctaHref="/signup" ctaLabel="Create account" />
+    <main className="page-shell">
+      <section className="section-shell">
+        <div className="panel auth-panel">
+          <PublicHeader />
+          <div className="auth-wrap">
+            <div className="update-banner compact-banner">
+              <span className="update-dot" />
+              <span>March 28, 2026 update</span>
+            </div>
+            <div className="eyebrow">Account access</div>
+            <h1 className="section-title">Log in</h1>
+            <p className="page-text">Access the Specterfy account shell. Full auth wiring comes next.</p>
 
-        <div className="sf-auth-card">
-          <span className="sf-eyebrow">ACCOUNT ACCESS</span>
-          <h1 className="sf-h2">Log in to Specterfy</h1>
-          <p className="sf-body">
-            Access your account and continue your privacy-first workflow.
-          </p>
+            <form className="auth-form">
 
-          <form className="sf-form">
-            <label className="sf-field">
-              <span>Email</span>
-              <input type="email" placeholder="you@example.com" />
-            </label>
+<label className="field">
+  <span>Email</span>
+  <input type="email" placeholder="you@example.com" />
+</label>
+<label className="field">
+  <span>Password</span>
+  <input type="password" placeholder="Enter password" />
+</label>
 
-            <label className="sf-field">
-              <span>Password</span>
-              <div className="sf-password-wrap">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  className="sf-eye-btn"
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-            </label>
+              <button type="button" className="button button-primary button-full">Log in</button>
+            </form>
 
-            <button type="button" className="sf-btn sf-btn-primary sf-btn-full">
-              Log in
-            </button>
-          </form>
+            <div className="sub-links">
 
-          <div className="sf-inline-links">
-            <Link href="/forgot" className="sf-text-link">Forgot password?</Link>
-            <Link href="/signup" className="sf-text-link">Create account</Link>
+<Link href="/forgot">Forgot password?</Link>
+<Link href="/signup">Create account</Link>
+
+            </div>
           </div>
         </div>
       </section>

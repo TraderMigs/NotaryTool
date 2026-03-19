@@ -1,24 +1,25 @@
-import PublicFooter from "@/components/PublicFooter";
-import PublicHeader from "@/components/PublicHeader";
+import PublicFooter from "../../components/PublicFooter";
+import PublicHeader from "../../components/PublicHeader";
 
 export default function DisclaimerPage() {
   return (
-    <main className="sf-shell">
-      <section className="sf-hero-wrap">
-        <PublicHeader />
-        <div className="sf-legal-card">
-          <span className="sf-eyebrow">DISCLAIMER</span>
-          <h1 className="sf-h2">Narrow claims only.</h1>
-          <p className="sf-body">
-            Specterfy does not provide legal advice, notarial acts, identity verification, or compliance guarantees.
-          </p>
-          <p className="sf-body">
-            Users are responsible for final review, suitability, and downstream use of any output.
-          </p>
+    <main className="page-shell">
+      <section className="section-shell">
+        <div className="panel legal-panel">
+          <PublicHeader />
+          <div className="legal-wrap">
+            <div className="eyebrow">Disclaimer</div>
+            <h1 className="section-title">No overclaims</h1>
+
+<p className="page-text">No compliance guarantee. No legal guarantee. No outcome guarantee. Final review, suitability, and downstream use remain with the user.</p>
+
+          </div>
         </div>
       </section>
 
-      <PublicFooter />
+      <div className="section-shell">
+        <PublicFooter />
+      </div>
     </main>
   );
 }
