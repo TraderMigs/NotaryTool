@@ -11,7 +11,7 @@ export default function SignInPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Auth wiring in Phase 3
+    // Auth wiring — Phase 3
   }
 
   return (
@@ -34,7 +34,7 @@ export default function SignInPage() {
               <p>
                 Specterfy is a privacy pre-processor for document sanitization.
                 It is not a notary journal or legal compliance platform.
-                You remain responsible for final review of all outputs.
+                You remain responsible for all output review.
               </p>
             </div>
           </div>
@@ -42,7 +42,7 @@ export default function SignInPage() {
           <div className="auth-right">
             <div>
               <div className="auth-form-title">Welcome back</div>
-              <div className="auth-form-sub" style={{ marginTop: '4px' }}>Enter your credentials to continue.</div>
+              <div className="auth-form-sub">Enter your credentials to continue.</div>
             </div>
 
             <form onSubmit={handleSubmit} className="auth-fields">
@@ -72,21 +72,14 @@ export default function SignInPage() {
                     onChange={e => setPassword(e.target.value)}
                     autoComplete="current-password"
                     required
-                    style={{ paddingRight: '44px' }}
+                    style={{ paddingRight: '52px' }}
                   />
                   <button
                     type="button"
+                    className="pw-toggle"
                     onClick={() => setShowPw(!showPw)}
-                    style={{
-                      position: 'absolute', right: '13px', top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-faint)', fontSize: '12px',
-                      fontFamily: 'var(--syne, sans-serif)', fontWeight: 600,
-                      letterSpacing: '0.06em',
-                    }}
                   >
-                    {showPw ? 'HIDE' : 'SHOW'}
+                    {showPw ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>

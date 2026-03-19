@@ -6,7 +6,9 @@ export default function PublicFooter() {
       <div className="container footer-inner">
         <div className="footer-brand">
           <div className="logo-name">Specterfy</div>
-          <p className="footer-tag">Privacy-first document sanitization utility for Pennsylvania notaries.</p>
+          <p className="footer-tag">
+            Privacy-first document sanitization utility for Pennsylvania notaries.
+          </p>
         </div>
 
         <nav className="footer-links">

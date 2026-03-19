@@ -5,46 +5,44 @@ import PublicFooter from '../../components/PublicFooter'
 
 export const metadata: Metadata = {
   title: 'Pricing — Specterfy',
-  description: 'Simple, transparent pricing for Specterfy. Free to start. Unlimited at $14/mo or $97/yr.',
+  description: 'Simple, transparent pricing for Specterfy.',
 }
 
 export default function PricingPage() {
   return (
     <>
       <PublicHeader />
-
       <main className="page-wrap">
         <div className="container">
 
           <div className="pricing-page-hero">
-            <p className="label" style={{ marginBottom: '16px' }}>Pricing</p>
+            <p className="label">Pricing</p>
             <h1 style={{
-              fontFamily: 'var(--syne, sans-serif)',
-              fontSize: 'clamp(40px, 6vw, 68px)',
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
-              marginBottom: '16px',
+              fontFamily: 'var(--dm-sans, sans-serif)',
+              fontSize: 'clamp(36px, 5.5vw, 62px)',
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+              marginTop: '14px',
+              marginBottom: '14px',
+              lineHeight: 1.06,
             }}>
               Clear plans.<br />No noise.
             </h1>
-            <p style={{ fontSize: '16px', color: 'var(--text-muted)', maxWidth: '400px' }}>
+            <p style={{ fontSize: '16px', color: 'var(--text-muted)', maxWidth: '380px', lineHeight: '1.65' }}>
               Free access for testing. Clean paid paths for unlimited usage once the full account system is wired.
             </p>
           </div>
 
           <div className="rule" />
 
-          <div style={{ padding: '64px 0' }}>
+          <div style={{ padding: '56px 0' }}>
             <div className="pricing-cards">
 
               <div className="pricing-card">
                 <div className="pricing-badge">Starter</div>
                 <div className="pricing-price">Free</div>
-                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
-                  5 sanitizes per day. No payment required.
-                  Good for evaluating the workflow.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                <p className="pricing-desc">5 sanitizes per day. No payment required.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>5 sanitizes/day</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Account access</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Standard output quality</span>
@@ -57,14 +55,10 @@ export default function PricingPage() {
               <div className="pricing-card featured">
                 <div className="pricing-badge">Monthly</div>
                 <div className="pricing-price">
-                  $14
-                  <span className="pricing-per">/mo</span>
+                  $14<span className="pricing-per">/mo</span>
                 </div>
-                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
-                  Unlimited sanitization. Full account access.
-                  No daily cap.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                <p className="pricing-desc">Unlimited sanitization. No daily cap.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Unlimited sanitizes</span>
                   <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Full account access</span>
                   <span style={{ fontSize: '13px', color: 'var(--cyan-dim)' }}>Cancel anytime</span>
@@ -77,14 +71,10 @@ export default function PricingPage() {
               <div className="pricing-card">
                 <div className="pricing-badge">Yearly</div>
                 <div className="pricing-price">
-                  $97
-                  <span className="pricing-per">/yr</span>
+                  $97<span className="pricing-per">/yr</span>
                 </div>
-                <p className="pricing-desc" style={{ fontSize: '14px', lineHeight: '1.65', marginBottom: '8px' }}>
-                  Unlimited sanitization. Best annual rate.
-                  Equivalent to $8.08/mo.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                <p className="pricing-desc">Unlimited sanitization. Equivalent to $8.08/mo.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Unlimited sanitizes</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Full account access</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Best value</span>
@@ -96,7 +86,7 @@ export default function PricingPage() {
 
             </div>
 
-            <p className="pricing-note" style={{ marginTop: '32px', textAlign: 'center', fontSize: '13px', color: 'var(--text-faint)' }}>
+            <p style={{ marginTop: '28px', textAlign: 'center', fontSize: '13px', color: 'var(--text-faint)' }}>
               Paid plans require account verification. Billing activates only after payment is confirmed.
               You remain responsible for final review of all outputs.
             </p>
@@ -104,8 +94,8 @@ export default function PricingPage() {
 
           <div className="rule" />
 
-          <div style={{ padding: '56px 0', maxWidth: '560px' }}>
-            <p className="label" style={{ marginBottom: '14px' }}>Important</p>
+          <div style={{ padding: '48px 0', maxWidth: '560px' }}>
+            <p className="label" style={{ marginBottom: '12px' }}>Important</p>
             <p style={{ fontSize: '15px', color: 'var(--text-muted)', lineHeight: '1.75' }}>
               Specterfy is a privacy pre-processing utility. It is not a notary platform,
               journal, or compliance guarantee. Users remain responsible for reviewing all outputs
@@ -115,7 +105,6 @@ export default function PricingPage() {
 
         </div>
       </main>
-
       <PublicFooter />
     </>
   )

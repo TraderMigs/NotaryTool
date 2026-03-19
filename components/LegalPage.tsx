@@ -7,7 +7,6 @@ interface Section {
 }
 
 interface LegalPageProps {
-  type: 'privacy' | 'terms' | 'disclaimer'
   title: string
   subtitle: string
   updated: string
@@ -16,22 +15,13 @@ interface LegalPageProps {
   sections: Section[]
 }
 
-export default function LegalPage({
-  type,
-  title,
-  subtitle,
-  updated,
-  intro,
-  notice,
-  sections,
-}: LegalPageProps) {
+export default function LegalPage({ title, subtitle, updated, intro, notice, sections }: LegalPageProps) {
   return (
     <>
       <PublicHeader />
       <main className="page-wrap">
         <div className="container">
           <div className="legal-page">
-
             <div className="legal-header">
               <span className="label">{subtitle}</span>
               <h1 className="legal-title">{title}</h1>
@@ -39,36 +29,23 @@ export default function LegalPage({
             </div>
 
             <div className="legal-body">
-
               {notice && (
                 <div className="legal-disclaimer-box">
                   <p>{notice}</p>
                 </div>
               )}
-
-              {intro && (
-                <section>
-                  <p>{intro}</p>
-                </section>
-              )}
-
+              {intro && <section><p>{intro}</p></section>}
               {sections.map((s, i) => (
                 <section key={i}>
                   <h2>{s.title}</h2>
                   {Array.isArray(s.content) ? (
-                    <ul>
-                      {s.content.map((item, j) => (
-                        <li key={j}>{item}</li>
-                      ))}
-                    </ul>
+                    <ul>{s.content.map((item, j) => <li key={j}>{item}</li>)}</ul>
                   ) : (
                     <p>{s.content}</p>
                   )}
                 </section>
               ))}
-
             </div>
-
           </div>
         </div>
       </main>

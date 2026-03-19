@@ -1,18 +1,11 @@
 import type { Metadata } from 'next'
-import { Syne, Plus_Jakarta_Sans } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import './globals.css'
 
-const syne = Syne({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '700', '800'],
-  variable: '--syne',
-  display: 'swap',
-})
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--jakarta',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--dm-sans',
   display: 'swap',
 })
 
@@ -35,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${syne.variable} ${jakarta.variable}`}>
-      <body style={{ fontFamily: 'var(--jakarta, sans-serif)' }}>
+    <html lang="en" className={dmSans.variable}>
+      <body>
         {children}
       </body>
     </html>

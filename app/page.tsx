@@ -9,7 +9,7 @@ export default function HomePage() {
 
       <main className="page-wrap">
 
-        {/* ── HERO ─────────────────────────── */}
+        {/* ── HERO ─────────────────────── */}
         <section className="hero-section">
           <div className="container">
 
@@ -17,17 +17,15 @@ export default function HomePage() {
               <span className="hero-pa-dot" />
               <span className="hero-pa-text">
                 Pennsylvania update
-                <span className="hero-pa-date"> &nbsp;March 28, 2026</span>
+                <span className="hero-pa-date">&nbsp; March 28, 2026</span>
               </span>
             </div>
 
-            <div className="hero-headline-glow">
-              <h1 className="hero-headline">
-                Clean sensitive PDFs<br />
-                before they become<br />
-                a workflow liability.
-              </h1>
-            </div>
+            <h1 className="hero-headline">
+              Clean sensitive PDFs<br />
+              before they become<br />
+              a workflow liability.
+            </h1>
 
             <p className="hero-sub">
               A pre-ingestion privacy utility for Pennsylvania notaries.
@@ -48,13 +46,13 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── WHAT IT IS ───────────────────── */}
+        {/* ── WHAT IT IS ───────────────── */}
         <section className="what-section">
           <div className="container">
+            <p className="label" style={{ marginBottom: '28px' }}>What it is</p>
             <div className="what-grid">
 
               <div>
-                <p className="label" style={{ marginBottom: '28px' }}>What it is</p>
                 <h2 className="what-statement">
                   Serious utility.<br />
                   Cleaner positioning.<br />
@@ -62,24 +60,22 @@ export default function HomePage() {
                 </h2>
               </div>
 
-              <div>
-                <div className="what-descriptors">
-                  <div className="what-item">
-                    <span className="what-num">01</span>
-                    <span className="what-text">Privacy pre-processor</span>
-                  </div>
-                  <div className="what-item">
-                    <span className="what-num">02</span>
-                    <span className="what-text">Document sanitization utility</span>
-                  </div>
-                  <div className="what-item">
-                    <span className="what-num">03</span>
-                    <span className="what-text">Clean-copy generator</span>
-                  </div>
-                  <div className="what-item">
-                    <span className="what-num">04</span>
-                    <span className="what-text">Workflow helper</span>
-                  </div>
+              <div className="what-descriptors">
+                <div className="what-item">
+                  <span className="what-num">01</span>
+                  <span className="what-text">Privacy pre-processor</span>
+                </div>
+                <div className="what-item">
+                  <span className="what-num">02</span>
+                  <span className="what-text">Document sanitization utility</span>
+                </div>
+                <div className="what-item">
+                  <span className="what-num">03</span>
+                  <span className="what-text">Clean-copy generator</span>
+                </div>
+                <div className="what-item">
+                  <span className="what-num">04</span>
+                  <span className="what-text">Workflow helper</span>
                 </div>
               </div>
 
@@ -87,12 +83,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── WHY IT MATTERS ───────────────── */}
+        {/* ── WHY IT MATTERS ───────────── */}
         <section className="why-section">
           <div className="container">
-
             <div className="why-header">
-              <p className="label" style={{ marginBottom: '16px' }}>Why it matters</p>
+              <p className="label">Why it matters</p>
               <h2 className="why-headline">
                 Less clutter.<br />
                 Stronger first impression.
@@ -122,19 +117,17 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-
           </div>
         </section>
 
-        {/* ── PRICING STRIP ────────────────── */}
+        {/* ── PRICING STRIP ────────────── */}
         <section className="pricing-section">
           <div className="container">
-
             <div className="pricing-header">
-              <p className="label" style={{ marginBottom: '16px' }}>Pricing</p>
+              <p className="label">Pricing</p>
               <h2 className="pricing-headline">Simple entry. Clean upgrade path.</h2>
               <p className="pricing-sub">
-                Free access for testing. Clean paid paths for unlimited usage once the full account system is live.
+                Free to start. Clean paid paths for unlimited usage.
               </p>
             </div>
 

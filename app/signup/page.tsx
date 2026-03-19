@@ -12,7 +12,7 @@ export default function SignupPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Auth wiring in Phase 3
+    // Auth wiring — Phase 3
   }
 
   return (
@@ -27,44 +27,15 @@ export default function SignupPage() {
                 <span className="label">New account</span>
               </div>
               <h1 className="auth-left-headline">Create your workspace</h1>
-              <p className="auth-left-sub">
-                Free to start. 5 sanitizes per day. No card required.
-              </p>
+              <p className="auth-left-sub">Free to start. 5 sanitizes per day. No card required.</p>
 
-              <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <span style={{ fontSize: '9px', color: 'var(--cyan)' }}>✓</span>
-                  </span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>5 free sanitizes per day</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <span style={{ fontSize: '9px', color: 'var(--cyan)' }}>✓</span>
-                  </span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No credit card required</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <span style={{ fontSize: '9px', color: 'var(--cyan)' }}>✓</span>
-                  </span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Upgrade anytime</span>
-                </div>
+              <div className="auth-left-perks">
+                {['5 free sanitizes per day', 'No credit card required', 'Upgrade anytime'].map(p => (
+                  <div key={p} className="auth-left-perk">
+                    <span className="auth-perk-dot">✓</span>
+                    <span>{p}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="auth-left-footer">
@@ -78,7 +49,7 @@ export default function SignupPage() {
           <div className="auth-right">
             <div>
               <div className="auth-form-title">Get started</div>
-              <div className="auth-form-sub" style={{ marginTop: '4px' }}>Create your free Specterfy account.</div>
+              <div className="auth-form-sub">Create your free Specterfy account.</div>
             </div>
 
             <form onSubmit={handleSubmit} className="auth-fields">
@@ -109,28 +80,19 @@ export default function SignupPage() {
                     autoComplete="new-password"
                     required
                     minLength={8}
-                    style={{ paddingRight: '44px' }}
+                    style={{ paddingRight: '52px' }}
                   />
                   <button
                     type="button"
+                    className="pw-toggle"
                     onClick={() => setShowPw(!showPw)}
-                    style={{
-                      position: 'absolute', right: '13px', top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-faint)', fontSize: '12px',
-                      fontFamily: 'var(--syne, sans-serif)', fontWeight: 600,
-                      letterSpacing: '0.06em',
-                    }}
                   >
-                    {showPw ? 'HIDE' : 'SHOW'}
+                    {showPw ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
 
-              <label style={{
-                display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer',
-              }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={agreed}
@@ -140,11 +102,9 @@ export default function SignupPage() {
                 />
                 <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
                   I agree to the{' '}
-                  <Link href="/terms" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Terms</Link>
-                  ,{' '}
-                  <Link href="/privacy" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Privacy Policy</Link>
-                  , and{' '}
-                  <Link href="/disclaimer" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Disclaimer</Link>.
+                  <Link href="/terms" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Terms</Link>,{' '}
+                  <Link href="/privacy" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Privacy Policy</Link>,
+                  and <Link href="/disclaimer" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Disclaimer</Link>.
                 </span>
               </label>
 
