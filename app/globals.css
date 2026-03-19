@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   SPECTERFY — Design System v3
+   SPECTERFY — Design System v4
    globals.css
    ───────────────────────────────────────── */
 
@@ -168,6 +168,24 @@ p {
   color: var(--text-primary);
 }
 
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+  border: none;
+  text-decoration: none;
+  transition: color 0.15s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-ghost:hover { color: var(--text-primary); }
+
 .btn-full {
   width: 100%;
   display: flex;
@@ -211,14 +229,9 @@ p {
 }
 .field-input::placeholder { color: var(--text-faint); }
 
-/* Password field with eye toggle */
-.field-input-pw {
-  padding-right: 56px;
-}
+.field-input-pw { padding-right: 48px; }
 
-.pw-wrap {
-  position: relative;
-}
+.pw-wrap { position: relative; }
 
 .pw-toggle {
   position: absolute;
@@ -228,7 +241,8 @@ p {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-faint);
+  /* FIX: was text-faint (nearly invisible) — now text-muted so eye is always visible */
+  color: var(--text-muted);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -236,11 +250,11 @@ p {
   transition: color 0.15s;
   line-height: 0;
 }
-.pw-toggle:hover { color: var(--text-secondary); }
+.pw-toggle:hover { color: var(--text-primary); }
 
 .pw-toggle svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
 }
 
@@ -250,6 +264,23 @@ p {
   height: 1px;
   background: var(--border);
   width: 100%;
+}
+
+/* ── Back nav bar ───────────────────── */
+
+.back-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+
+.back-nav-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-mid);
 }
 
 /* ══════════════════════════════════════
@@ -382,7 +413,12 @@ p {
   gap: 24px;
 }
 
-.footer-brand .logo-name { font-size: 15px; font-family: var(--font-sans); font-weight: 700; color: var(--text-primary); }
+.footer-brand .logo-name {
+  font-size: 15px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-primary);
+}
 
 .footer-tag {
   font-size: 13px;
@@ -417,9 +453,7 @@ p {
    LANDING — Hero
    ══════════════════════════════════════ */
 
-.hero-section {
-  padding: 80px 0 64px;
-}
+.hero-section { padding: 80px 0 64px; }
 
 .hero-pa-pill {
   display: inline-flex;
@@ -584,7 +618,7 @@ p {
   line-height: 1.65;
 }
 
-/* ── Pricing section ──────────────────── */
+/* ── Pricing ──────────────────────────── */
 
 .pricing-section {
   padding: 72px 0;
@@ -659,10 +693,6 @@ p {
   line-height: 1.58;
   flex: 1;
 }
-
-/* ══════════════════════════════════════
-   PRICING PAGE
-   ══════════════════════════════════════ */
 
 .pricing-page-hero { padding: 72px 0 56px; }
 
@@ -807,11 +837,7 @@ p {
    LEGAL PAGES
    ══════════════════════════════════════ */
 
-.legal-page {
-  padding: 72px 0 110px;
-  position: relative;
-  z-index: 1;
-}
+.legal-page { padding: 72px 0 110px; position: relative; z-index: 1; }
 
 .legal-header {
   margin-bottom: 56px;
@@ -825,10 +851,7 @@ p {
   margin-bottom: 12px;
 }
 
-.legal-updated {
-  font-size: 13px;
-  color: var(--text-faint);
-}
+.legal-updated { font-size: 13px; color: var(--text-faint); }
 
 .legal-body { max-width: 660px; }
 .legal-body section { margin-bottom: 44px; }
@@ -847,31 +870,9 @@ p {
 }
 .legal-body p:last-child { margin-bottom: 0; }
 
-.legal-body ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-}
-.legal-body ul li {
-  font-size: 15px;
-  color: var(--text-secondary);
-  padding-left: 16px;
-  position: relative;
-  line-height: 1.65;
-}
-.legal-body ul li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--cyan-dim);
-}
+.legal-body ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.legal-body ul li { font-size: 15px; color: var(--text-secondary); padding-left: 16px; position: relative; line-height: 1.65; }
+.legal-body ul li::before { content: ''; position: absolute; left: 0; top: 9px; width: 5px; height: 5px; border-radius: 50%; background: var(--cyan-dim); }
 
 .legal-disclaimer-box {
   background: rgba(0, 200, 240, 0.04);
@@ -880,11 +881,7 @@ p {
   padding: 22px;
   margin-bottom: 36px;
 }
-.legal-disclaimer-box p {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 0;
-}
+.legal-disclaimer-box p { font-size: 14px; color: var(--text-secondary); margin-bottom: 0; }
 
 /* ══════════════════════════════════════
    RESPONSIVE
@@ -905,7 +902,6 @@ p {
 
   .what-grid { grid-template-columns: 1fr; gap: 36px; }
 
-  /* FIX: all why-items aligned flush left on mobile */
   .why-grid { grid-template-columns: 1fr; }
   .why-item {
     border-right: none;
@@ -929,6 +925,8 @@ p {
   .footer-inner { flex-direction: column; align-items: flex-start; gap: 20px; }
   .footer-links { justify-content: flex-start; }
   .site-footer { margin-top: 72px; }
+
+  .back-nav { flex-wrap: wrap; gap: 12px; }
 }
 
 @media (max-width: 480px) {

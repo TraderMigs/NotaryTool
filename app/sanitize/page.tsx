@@ -190,7 +190,21 @@ export default function SanitizePage() {
       <PublicHeader />
 
       <main className="page-wrap">
-        <div className="container" style={{ paddingTop: "48px", paddingBottom: "80px" }}>
+        <div className="container" style={{ paddingTop: "40px", paddingBottom: "80px" }}>
+
+          {/* Back nav */}
+          <div className="back-nav">
+            <Link href="/" className="btn-ghost">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7" />
+              </svg>
+              Home
+            </Link>
+            <span className="back-nav-divider" />
+            <Link href="/review" className="btn-ghost">Review</Link>
+            <span className="back-nav-divider" />
+            <Link href="/dashboard" className="btn-ghost">Dashboard</Link>
+          </div>
 
           {/* Top bar */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "28px", gap: "16px", flexWrap: "wrap" }}>
@@ -200,21 +214,16 @@ export default function SanitizePage() {
                 Prep a cleaner PDF
               </h1>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-              <Link href="/review" className="btn-secondary" style={{ padding: "9px 16px", fontSize: "13px" }}>Review</Link>
-              <Link href="/dashboard" className="btn-secondary" style={{ padding: "9px 16px", fontSize: "13px" }}>Dashboard</Link>
-            </div>
           </div>
 
           <div className="rule" style={{ marginBottom: "28px" }} />
 
-          {/* Two-column */}
+          {/* Two-column layout */}
           <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "20px", alignItems: "start" }}>
 
             {/* Sidebar */}
             <aside style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
 
-              {/* Upload */}
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
                 <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Upload</div>
                 <label style={{ display: "flex", flexDirection: "column", gap: "5px", border: "1px dashed var(--border-mid)", borderRadius: "8px", padding: "14px 12px", cursor: "pointer", background: "rgba(255,255,255,0.02)" }}>
@@ -226,7 +235,6 @@ export default function SanitizePage() {
                 </label>
               </div>
 
-              {/* Live totals */}
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
                 <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Live totals</div>
                 {[
@@ -241,7 +249,6 @@ export default function SanitizePage() {
                 ))}
               </div>
 
-              {/* Progress */}
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
                 <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Progress</div>
                 <div style={{ height: "3px", background: "var(--border)", borderRadius: "100px", overflow: "hidden", marginBottom: "10px" }}>
@@ -255,7 +262,6 @@ export default function SanitizePage() {
                 )}
               </div>
 
-              {/* Generate button */}
               <button
                 type="button"
                 className="btn-primary btn-full"
@@ -292,7 +298,6 @@ export default function SanitizePage() {
                         Clear page
                       </button>
                     </div>
-
                     <div
                       ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
                       style={{ position: "relative", userSelect: "none", cursor: "crosshair", lineHeight: 0 }}
@@ -301,11 +306,9 @@ export default function SanitizePage() {
                       onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}
                     >
                       <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: "100%", display: "block", pointerEvents: "none" }} draggable={false} />
-
                       {rects.map((rect, idx) => (
                         <div key={`${page.pageNumber}-${idx}`} style={{ position: "absolute", background: "#000", opacity: 0.88, ...getRectStyle(rect) }} />
                       ))}
-
                       {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
                         <div style={{ position: "absolute", background: "rgba(0,200,240,0.22)", border: "1.5px solid var(--cyan)", ...getRectStyle(liveDraftRect) }} />
                       )}
