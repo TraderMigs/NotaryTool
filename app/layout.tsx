@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "NotaryTool",
+  title: "Specterfy",
   description: "Privacy pre-processor for Pennsylvania notaries",
   icons: {
     icon: "/favicon.svg"

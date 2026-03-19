@@ -1,72 +1,55 @@
 import Link from "next/link";
+import PublicFooter from "@/components/PublicFooter";
+import PublicHeader from "@/components/PublicHeader";
 
 export default function HomePage() {
   return (
     <main className="site-shell">
       <section className="landing-hero">
-        <div className="top-nav">
-          <div className="brand-lockup">
-            <div className="brand-mark">N</div>
-            <div>
-              <div className="eyebrow">PA COMPLIANCE UTILITY</div>
-              <div className="brand-name">NotaryTool</div>
-            </div>
-          </div>
-
-          <div className="nav-links">
-            <Link href="/sanitize" className="nav-link">
-              Sanitize
-            </Link>
-            <Link href="/dashboard" className="nav-link">
-              Dashboard
-            </Link>
-            <Link href="/sign-in" className="nav-link nav-link-cta">
-              Sign in
-            </Link>
-          </div>
-        </div>
+        <PublicHeader />
 
         <div className="hero-grid">
           <div>
-            <div className="eyebrow">MARCH 28, 2026 DEADLINE</div>
+            <div className="eyebrow">PA NOTARY PRIVACY PRE-PROCESSOR</div>
             <h1 className="landing-title">
-              Clean private data before it ever touches your notary workflow
+              Sanitize sensitive PDFs before they enter downstream notary workflows
             </h1>
+
             <p className="landing-copy">
-              A fast, privacy-first pre-processor for Pennsylvania notaries.
-              Redact sensitive content, generate a clean image-only PDF, and
-              support the new $5 witnessing fee story without dragging staff into
-              clunky enterprise software.
+              Specterfy helps create clean privacy-first copies before a document moves into later processing.
+              It is a document sanitization utility and workflow aid, not a journal,
+              not a RON platform, and not a state-approved notarization provider.
             </p>
 
             <div className="hero-actions">
-              <Link href="/sanitize" className="primary-btn">
-                Start sanitizing
-              </Link>
-              <Link href="/sign-in" className="secondary-btn">
-                Owner sign in
-              </Link>
+              <Link href="/signup" className="primary-btn">Start free</Link>
+              <Link href="/pricing" className="secondary-btn">View pricing</Link>
             </div>
 
             <div className="pill-row">
-              <span className="pill">Image-only clean PDF</span>
-              <span className="pill">SHA-256 audit hash</span>
-              <span className="pill">Counter-top fast</span>
-              <span className="pill">Browser-side processing</span>
+              <span className="pill">Free plan: 5 sanitizes/day</span>
+              <span className="pill">$14/mo unlimited</span>
+              <span className="pill">$97/year unlimited</span>
+              <span className="pill">Utility positioning only</span>
             </div>
           </div>
 
           <div className="deadline-card">
-            <div className="eyebrow">WHY THIS CONVERTS</div>
-            <div className="deadline-amount">$1,000</div>
-            <div className="deadline-copy">
-              Put the compliance risk in front of the owner, not just the clerk.
+            <div>
+              <div className="eyebrow">WHAT THIS PRODUCT IS</div>
+              <h2 className="panel-title">Privacy-first pre-ingestion workflow layer</h2>
             </div>
+
+            <p className="deadline-copy">
+              Use Specterfy before downstream workflow steps so operators can reduce
+              unnecessary exposure of sensitive information during handling.
+            </p>
+
             <ul className="check-list">
-              <li>Simple upload to clean-file flow</li>
-              <li>Cleaner operator experience for busy shops</li>
-              <li>Built to support the new $5 witnessing revenue hook</li>
-              <li>Designed to stay lean, fast, and usable</li>
+              <li>Document sanitization utility</li>
+              <li>Clean-copy generator</li>
+              <li>Pre-ingestion privacy step</li>
+              <li>Workflow helper, not a regulated platform</li>
             </ul>
           </div>
         </div>
@@ -74,61 +57,48 @@ export default function HomePage() {
 
       <section className="value-strip">
         <div className="value-card">
-          <div className="eyebrow">UTILITY POSITIONING</div>
-          <h2>Not a journal. Not a RON platform.</h2>
-          <p>
-            This tool processes documents before they enter other workflows. That
-            is the wedge.
-          </p>
+          <div className="eyebrow">WHAT IT IS</div>
+          <h2>Utility first</h2>
+          <p>Privacy pre-processor. Document sanitization utility. Clean-copy generator.</p>
         </div>
+
         <div className="value-card">
-          <div className="eyebrow">COUNTER-TOP UX</div>
-          <h2>Built for speed at the desk</h2>
-          <p>
-            Fast page preview, smoother drag selection, clear review, fast
-            download.
-          </p>
+          <div className="eyebrow">WHAT IT IS NOT</div>
+          <h2>Not a regulated notary platform</h2>
+          <p>Not a journal. Not a notarization system. Not a seal or identity verification workflow.</p>
         </div>
+
         <div className="value-card">
-          <div className="eyebrow">OWNER CTA</div>
-          <h2>Show the fee story</h2>
-          <p>
-            Make the $5 witnessing opportunity visible so adoption feels like
-            risk reduction plus revenue.
-          </p>
+          <div className="eyebrow">CURRENT BUILD PATH</div>
+          <h2>Public product shell first</h2>
+          <p>Landing, pricing, auth screens, legal pages, then real account and Stripe wiring.</p>
         </div>
       </section>
 
       <section className="tool-grid">
         <article className="tool-card">
-          <div className="card-label">LIVE TOOL</div>
-          <h3>Sanitize</h3>
-          <p>Upload a PDF, draw boxes, and create a clean image-only output.</p>
-          <Link href="/sanitize" className="primary-btn small-btn">
-            Open tool
-          </Link>
+          <div className="card-label">FREE</div>
+          <h3>Starter</h3>
+          <p>Create an account and access the free usage path with daily limits.</p>
+          <Link href="/signup" className="primary-btn small-btn">Create account</Link>
         </article>
 
         <article className="tool-card">
-          <div className="card-label">REVIEW</div>
-          <h3>Review clean PDF</h3>
-          <p>
-            Confirm redactions, see the audit hash, and download the clean file.
-          </p>
-          <Link href="/review" className="secondary-btn small-btn">
-            Open review
-          </Link>
+          <div className="card-label">PAID</div>
+          <h3>Unlimited</h3>
+          <p>Choose monthly or yearly when you are ready for unlimited sanitization usage.</p>
+          <Link href="/pricing" className="secondary-btn small-btn">View plans</Link>
         </article>
 
         <article className="tool-card">
-          <div className="card-label">OWNER VIEW</div>
-          <h3>Dashboard</h3>
-          <p>Track processed files and the simple witnessing fee tally.</p>
-          <Link href="/dashboard" className="secondary-btn small-btn">
-            Open dashboard
-          </Link>
+          <div className="card-label">CURRENT TOOL</div>
+          <h3>Sanitize utility</h3>
+          <p>The working MVP tool stays available while the real SaaS shell is built around it.</p>
+          <Link href="/sanitize" className="secondary-btn small-btn">Open tool</Link>
         </article>
       </section>
+
+      <PublicFooter />
     </main>
   );
 }
