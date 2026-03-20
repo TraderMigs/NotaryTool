@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import PublicHeader from '../../components/PublicHeader'
+import { signUp } from '@/lib/auth'
 
 function EyeIcon() {
   return (
@@ -28,10 +29,57 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Auth wiring — Phase 3
+    if (!agreed) { setError('You must agree to the Terms, Privacy Policy, and Disclaimer.'); return }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
+
+    setError('')
+    setLoading(true)
+
+    const { error: authError } = await signUp(email, password)
+
+    if (authError) {
+      setError(authError.message ?? 'Sign up failed. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    setDone(true)
+  }
+
+  if (done) {
+    return (
+      <>
+        <PublicHeader />
+        <div className="auth-page">
+          <div className="auth-split" style={{ maxWidth: '520px', gridTemplateColumns: '1fr' }}>
+            <div style={{ padding: '52px 44px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <span className="label">Check your email</span>
+              <h1 style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '28px', fontWeight: 700, letterSpacing: '-0.022em', color: 'var(--text-primary)' }}>
+                Confirm your account
+              </h1>
+              <p style={{ fontSize: '15px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
+                We sent a confirmation link to <strong style={{ color: 'var(--text-secondary)' }}>{email}</strong>.
+                Click the link in that email to activate your account, then sign in.
+              </p>
+              <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '8px', padding: '14px 16px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.65' }}>
+                  Check your spam folder if it doesn't arrive within a minute.
+                </p>
+              </div>
+              <Link href="/sign-in" className="btn-primary btn-full" style={{ marginTop: '4px' }}>
+                Go to sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </>
+    )
   }
 
   return (
@@ -59,7 +107,7 @@ export default function SignupPage() {
             </div>
             <div className="auth-left-footer">
               <p>
-                Specterfy is a privacy pre-processor. It is not a legal compliance platform.
+                Specterfy is a privacy pre-processor. Not a legal compliance platform.
                 You remain responsible for all output review and downstream handling.
               </p>
             </div>
@@ -70,6 +118,20 @@ export default function SignupPage() {
               <div className="auth-form-title">Get started</div>
               <div className="auth-form-sub">Create your free Specterfy account.</div>
             </div>
+
+            {error && (
+              <div style={{
+                background: 'rgba(255,80,80,0.08)',
+                border: '1px solid rgba(255,80,80,0.2)',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#FF8080',
+                lineHeight: '1.5',
+              }}>
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="auth-fields">
               <div className="field-wrap">
@@ -83,6 +145,7 @@ export default function SignupPage() {
                   onChange={e => setEmail(e.target.value)}
                   autoComplete="email"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -99,12 +162,14 @@ export default function SignupPage() {
                     autoComplete="new-password"
                     required
                     minLength={8}
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     className="pw-toggle"
                     onClick={() => setShowPw(!showPw)}
                     aria-label={showPw ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
                   >
                     {showPw ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
@@ -117,18 +182,24 @@ export default function SignupPage() {
                   checked={agreed}
                   onChange={e => setAgreed(e.target.checked)}
                   style={{ marginTop: '3px', accentColor: 'var(--cyan)', flexShrink: 0 }}
-                  required
+                  disabled={loading}
                 />
                 <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
                   I agree to the{' '}
                   <Link href="/terms" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Terms</Link>,{' '}
                   <Link href="/privacy" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Privacy Policy</Link>,
-                  and <Link href="/disclaimer" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Disclaimer</Link>.
+                  and{' '}
+                  <Link href="/disclaimer" className="auth-link-cyan" style={{ fontSize: '12.5px' }}>Disclaimer</Link>.
                 </span>
               </label>
 
-              <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px' }}>
-                Create account
+              <button
+                type="submit"
+                className="btn-primary btn-full"
+                style={{ marginTop: '4px', opacity: loading ? 0.6 : 1 }}
+                disabled={loading}
+              >
+                {loading ? 'Creating account…' : 'Create account'}
               </button>
             </form>
 

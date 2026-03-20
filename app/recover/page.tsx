@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import PublicHeader from '../../components/PublicHeader'
+import { updatePassword } from '@/lib/auth'
 
 function EyeIcon() {
   return (
@@ -24,17 +26,34 @@ function EyeOffIcon() {
 }
 
 export default function RecoverPage() {
+  const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
   const mismatch = confirm.length > 0 && password !== confirm
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (mismatch) return
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
+
+    setError('')
+    setLoading(true)
+
+    const { error: updateError } = await updatePassword(password)
+
+    if (updateError) {
+      setError(updateError.message ?? 'Failed to update password.')
+      setLoading(false)
+      return
+    }
+
     setDone(true)
+    setTimeout(() => router.push('/sign-in'), 2500)
   }
 
   return (
@@ -60,6 +79,13 @@ export default function RecoverPage() {
                   <div className="auth-form-title">New password</div>
                   <div className="auth-form-sub">Must be at least 8 characters.</div>
                 </div>
+
+                {error && (
+                  <div style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#FF8080' }}>
+                    {error}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="auth-fields">
                   <div className="field-wrap">
                     <label className="field-label" htmlFor="new-pw">New password</label>
@@ -73,12 +99,14 @@ export default function RecoverPage() {
                         onChange={e => setPassword(e.target.value)}
                         minLength={8}
                         required
+                        disabled={loading}
                       />
-                      <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                      <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide' : 'Show'} tabIndex={-1}>
                         {showPw ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
                   </div>
+
                   <div className="field-wrap">
                     <label className="field-label" htmlFor="confirm-pw">Confirm password</label>
                     <div className="pw-wrap">
@@ -91,15 +119,17 @@ export default function RecoverPage() {
                         onChange={e => setConfirm(e.target.value)}
                         minLength={8}
                         required
+                        disabled={loading}
                       />
-                      <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                      <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide' : 'Show'} tabIndex={-1}>
                         {showPw ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
                     {mismatch && <span style={{ fontSize: '12px', color: '#FF7070', marginTop: '2px' }}>Passwords do not match.</span>}
                   </div>
-                  <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px' }} disabled={mismatch}>
-                    Update password
+
+                  <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px', opacity: loading ? 0.6 : 1 }} disabled={loading || mismatch}>
+                    {loading ? 'Updating…' : 'Update password'}
                   </button>
                 </form>
               </>
@@ -107,9 +137,9 @@ export default function RecoverPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                 <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '10px', padding: '20px' }}>
                   <p style={{ fontWeight: 600, fontSize: '14px', color: 'var(--cyan)', marginBottom: '6px' }}>Password updated</p>
-                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>Your password has been changed. Sign in with your new credentials.</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>Redirecting you to sign in…</p>
                 </div>
-                <Link href="/sign-in" className="btn-primary btn-full">Sign in</Link>
+                <Link href="/sign-in" className="btn-primary btn-full">Sign in now</Link>
               </div>
             )}
           </div>

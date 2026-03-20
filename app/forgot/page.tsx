@@ -3,13 +3,27 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import PublicHeader from '../../components/PublicHeader'
+import { sendPasswordReset } from '@/lib/auth'
 
 export default function ForgotPage() {
   const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const { error: resetError } = await sendPasswordReset(email)
+
+    if (resetError) {
+      setError(resetError.message ?? 'Failed to send reset link.')
+      setLoading(false)
+      return
+    }
+
     setSent(true)
   }
 
@@ -36,6 +50,13 @@ export default function ForgotPage() {
                   <div className="auth-form-title">Forgot password</div>
                   <div className="auth-form-sub">We will send a reset link to your email.</div>
                 </div>
+
+                {error && (
+                  <div style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#FF8080' }}>
+                    {error}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="auth-fields">
                   <div className="field-wrap">
                     <label className="field-label" htmlFor="forgot-email">Email</label>
@@ -48,12 +69,14 @@ export default function ForgotPage() {
                       onChange={e => setEmail(e.target.value)}
                       autoComplete="email"
                       required
+                      disabled={loading}
                     />
                   </div>
-                  <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px' }}>
-                    Send reset link
+                  <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px', opacity: loading ? 0.6 : 1 }} disabled={loading}>
+                    {loading ? 'Sending…' : 'Send reset link'}
                   </button>
                 </form>
+
                 <div className="auth-meta">
                   <Link href="/sign-in" className="auth-link">Back to sign in</Link>
                   <Link href="/signup" className="auth-link auth-link-cyan">Create account</Link>
@@ -64,7 +87,7 @@ export default function ForgotPage() {
                 <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '10px', padding: '20px' }}>
                   <p style={{ fontWeight: 600, fontSize: '14px', color: 'var(--cyan)', marginBottom: '6px' }}>Reset link sent</p>
                   <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
-                    If an account exists for <strong style={{ color: 'var(--text-secondary)' }}>{email}</strong>, a reset link has been sent.
+                    If an account exists for <strong style={{ color: 'var(--text-secondary)' }}>{email}</strong>, a reset link has been sent. Check your inbox and spam folder.
                   </p>
                 </div>
                 <Link href="/sign-in" className="btn-secondary btn-full">Back to sign in</Link>

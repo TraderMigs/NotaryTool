@@ -1,0 +1,26 @@
+/* pw-toggle ONLY — paste this block to replace lines 236-259 in globals.css */
+
+.pw-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  /* PERMANENT FIX: hard value, not a CSS variable — always visible on dark inputs */
+  color: rgba(255, 255, 255, 0.55);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+  line-height: 0;
+}
+.pw-toggle:hover { color: rgba(255, 255, 255, 0.90); }
+
+.pw-toggle svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}

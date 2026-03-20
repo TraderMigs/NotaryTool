@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import PublicHeader from '../../components/PublicHeader'
+import { signIn } from '@/lib/auth'
 
 function EyeIcon() {
   return (
@@ -24,13 +26,27 @@ function EyeOffIcon() {
 }
 
 export default function SignInPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Auth wiring — Phase 3
+    setError('')
+    setLoading(true)
+
+    const { error: authError } = await signIn(email, password)
+
+    if (authError) {
+      setError(authError.message ?? 'Sign in failed. Check your email and password.')
+      setLoading(false)
+      return
+    }
+
+    router.push('/sanitize')
   }
 
   return (
@@ -50,7 +66,7 @@ export default function SignInPage() {
             <div className="auth-left-footer">
               <p>
                 Specterfy is a privacy pre-processor for document sanitization.
-                It is not a notary journal or legal compliance platform.
+                Not a notary journal or legal compliance platform.
                 You remain responsible for all output review.
               </p>
             </div>
@@ -61,6 +77,20 @@ export default function SignInPage() {
               <div className="auth-form-title">Welcome back</div>
               <div className="auth-form-sub">Enter your credentials to continue.</div>
             </div>
+
+            {error && (
+              <div style={{
+                background: 'rgba(255,80,80,0.08)',
+                border: '1px solid rgba(255,80,80,0.2)',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#FF8080',
+                lineHeight: '1.5',
+              }}>
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="auth-fields">
               <div className="field-wrap">
@@ -74,6 +104,7 @@ export default function SignInPage() {
                   onChange={e => setEmail(e.target.value)}
                   autoComplete="email"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -89,20 +120,27 @@ export default function SignInPage() {
                     onChange={e => setPassword(e.target.value)}
                     autoComplete="current-password"
                     required
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     className="pw-toggle"
                     onClick={() => setShowPw(!showPw)}
                     aria-label={showPw ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
                   >
                     {showPw ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
               </div>
 
-              <button type="submit" className="btn-primary btn-full" style={{ marginTop: '4px' }}>
-                Continue
+              <button
+                type="submit"
+                className="btn-primary btn-full"
+                style={{ marginTop: '4px', opacity: loading ? 0.6 : 1 }}
+                disabled={loading}
+              >
+                {loading ? 'Signing in…' : 'Continue'}
               </button>
             </form>
 

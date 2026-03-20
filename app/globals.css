@@ -241,8 +241,8 @@ p {
   background: none;
   border: none;
   cursor: pointer;
-  /* FIX: was text-faint (nearly invisible) — now text-muted so eye is always visible */
-  color: var(--text-muted);
+  /* PERMANENT FIX: hard value — always visible on dark inputs */
+  color: rgba(255, 255, 255, 0.55);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -250,7 +250,7 @@ p {
   transition: color 0.15s;
   line-height: 0;
 }
-.pw-toggle:hover { color: var(--text-primary); }
+.pw-toggle:hover { color: rgba(255, 255, 255, 0.90); }
 
 .pw-toggle svg {
   width: 17px;

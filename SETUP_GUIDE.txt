@@ -1,0 +1,249 @@
+
+╔══════════════════════════════════════════════════════════════════════╗
+║           SPECTERFY — COMPLETE SETUP GUIDE                          ║
+║           Stripe · Vercel · Supabase · Resend · Phases              ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — SUPABASE SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1 — Run the SQL
+  1. Go to: https://supabase.com/dashboard/project/ikhvtktvsvtfmzyrypto/editor
+  2. Paste the entire contents of SUPABASE_SQL_RUN_THIS.sql
+  3. Click Run
+  4. You should see: user_plans | daily_sanitize_counts in the results
+
+Step 2 — Configure Auth Email Templates
+  1. Go to: https://supabase.com/dashboard/project/ikhvtktvsvtfmzyrypto/auth/templates
+  2. Set "Confirm signup" redirect URL to:
+       https://specterfy.com/api/auth/callback
+  3. Set "Reset password" redirect URL to:
+       https://specterfy.com/recover
+  4. Save each one
+
+Step 3 — Set Auth Site URL
+  1. Go to: https://supabase.com/dashboard/project/ikhvtktvsvtfmzyrypto/auth/url-configuration
+  2. Site URL: https://specterfy.com
+  3. Add Redirect URLs (click + Add):
+       https://specterfy.com/api/auth/callback
+       https://specterfy.com/recover
+  4. Save
+
+Step 4 — Get your keys (you'll need these for Vercel)
+  Go to: https://supabase.com/dashboard/project/ikhvtktvsvtfmzyrypto/settings/api
+  Copy:
+  - Project URL         → NEXT_PUBLIC_SUPABASE_URL
+  - anon/public key     → NEXT_PUBLIC_SUPABASE_ANON_KEY
+  - service_role key    → SUPABASE_SERVICE_ROLE_KEY  (never expose publicly)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — STRIPE SETUP (LIVE MODE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT: Do all of this in LIVE mode, not Test mode.
+Toggle in top-left of Stripe dashboard: "Test mode" → OFF
+
+Step 1 — Create the two products
+
+  Product 1: Monthly Plan
+  ─────────────────────────────────────────
+  1. Go to: https://dashboard.stripe.com/products/create
+  2. Name:              Specterfy Monthly
+  3. Description:       Unlimited PDF sanitization — monthly billing
+  4. Pricing model:     Recurring
+  5. Price:             $9.97
+  6. Billing period:    Monthly
+  7. Currency:          USD
+  8. Click Save product
+  9. COPY the Price ID — looks like: price_1AbcXXXXXXXXXXXX
+     → Save as: STRIPE_PRICE_MONTHLY
+
+  Product 2: Yearly Plan
+  ─────────────────────────────────────────
+  1. Go to: https://dashboard.stripe.com/products/create
+  2. Name:              Specterfy Yearly
+  3. Description:       Unlimited PDF sanitization — annual billing
+  4. Pricing model:     Recurring
+  5. Price:             $89.00
+  6. Billing period:    Yearly
+  7. Currency:          USD
+  8. Click Save product
+  9. COPY the Price ID — looks like: price_1AbcYYYYYYYYYYYY
+     → Save as: STRIPE_PRICE_YEARLY
+
+Step 2 — Get your Stripe API keys
+  Go to: https://dashboard.stripe.com/apikeys
+  Make sure you are in LIVE mode (not Test)
+  Copy:
+  - Secret key:         starts with sk_live_...
+    → Save as: STRIPE_SECRET_KEY
+  - Publishable key:    starts with pk_live_... (not needed in code yet, save for later)
+
+Step 3 — Create the Webhook
+  1. Go to: https://dashboard.stripe.com/webhooks
+  2. Click: + Add endpoint
+  3. Endpoint URL:  https://specterfy.com/api/stripe/webhook
+  4. Description:   Specterfy production webhook
+  5. Click: + Select events
+  6. Search and select EXACTLY these 4 events:
+       ✓ checkout.session.completed
+       ✓ customer.subscription.deleted
+       ✓ invoice.payment_failed
+       ✓ invoice.payment_succeeded
+  7. Click Add endpoint
+  8. On the webhook detail page, click "Reveal" under Signing secret
+  9. COPY the signing secret — starts with whsec_...
+     → Save as: STRIPE_WEBHOOK_SECRET
+
+Step 4 — Customer Portal (for billing management)
+  1. Go to: https://dashboard.stripe.com/settings/billing/portal
+  2. Enable the portal
+  3. Under "Business information" set:
+     - Business name: Specterfy
+     - Privacy policy URL: https://specterfy.com/privacy
+     - Terms of service URL: https://specterfy.com/terms
+  4. Under "Features" enable: Cancel subscriptions
+  5. Save
+  6. Copy the portal link from Settings → Billing portal → "Your portal link"
+     It looks like: https://billing.stripe.com/p/login/XXXXXXXXXX
+     → Paste that URL into account/page.tsx where it says "https://billing.stripe.com/p/login/specterfy"
+     (do this after deploying, it's a one-time paste)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — RESEND SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1 — Add your domain to Resend
+  1. Go to: https://resend.com/domains
+  2. Click Add Domain
+  3. Enter: specterfy.com
+  4. Add the DNS records Resend gives you to your domain registrar
+  5. Click Verify
+
+Step 2 — Get your API key
+  1. Go to: https://resend.com/api-keys
+  2. Click Create API Key
+  3. Name: Specterfy Production
+  4. Permission: Full access
+  5. COPY the key — starts with re_...
+     → Save as: RESEND_API_KEY
+
+Step 3 — Disable Supabase's built-in auth emails
+  Since Resend handles the welcome email via the callback route,
+  you don't need to change Supabase email templates UNLESS you want
+  Resend to also send the confirmation email itself.
+  For now: leave Supabase sending the confirmation email (it works),
+  and Resend sends the welcome + payment confirm emails.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — VERCEL ENVIRONMENT VARIABLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Go to: https://vercel.com/migs-projects-b6fae86b/notary-tool/settings/environment-variables
+
+Add ALL of these. Set Environment: Production (and Preview if you want).
+
+┌──────────────────────────────────────┬────────────────────────────────────────────┐
+│ Variable Name                        │ Where to get it                            │
+├──────────────────────────────────────┼────────────────────────────────────────────┤
+│ NEXT_PUBLIC_SUPABASE_URL             │ Supabase → Settings → API → Project URL    │
+│ NEXT_PUBLIC_SUPABASE_ANON_KEY        │ Supabase → Settings → API → anon key       │
+│ SUPABASE_SERVICE_ROLE_KEY            │ Supabase → Settings → API → service_role   │
+│ NEXT_PUBLIC_SITE_URL                 │ https://specterfy.com                      │
+│ STRIPE_SECRET_KEY                    │ Stripe → API Keys → Secret key (live)      │
+│ STRIPE_WEBHOOK_SECRET                │ Stripe → Webhooks → Signing secret         │
+│ STRIPE_PRICE_MONTHLY                 │ Stripe → Products → Monthly → Price ID     │
+│ STRIPE_PRICE_YEARLY                  │ Stripe → Products → Yearly → Price ID      │
+│ RESEND_API_KEY                       │ Resend → API Keys                          │
+└──────────────────────────────────────┴────────────────────────────────────────────┘
+
+After adding all variables:
+  1. Click Save on each one
+  2. Go to Deployments tab
+  3. Click the 3-dot menu on the latest deployment → Redeploy
+  4. This forces the new env vars to take effect
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — HEADER UPDATE (add Account link when logged in)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The PublicHeader needs one change: show "Account" instead of "Start free"
+when the user is logged in. This is in Phase A below — do after going live.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — GO-LIVE CHECKLIST (do in order)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  □ Run SUPABASE_SQL_RUN_THIS.sql in Supabase SQL Editor
+  □ Set Supabase auth redirect URLs (Part 1 Step 2-3)
+  □ Create 2 Stripe products + copy both Price IDs
+  □ Create Stripe webhook + copy signing secret
+  □ Get Resend API key
+  □ Add all 9 Vercel env vars
+  □ Commit all code files from this zip to GitHub
+  □ Verify Vercel build goes green
+  □ Test sign up flow at specterfy.com/signup
+  □ Test sign in at specterfy.com/sign-in
+  □ Test password reset at specterfy.com/forgot
+  □ Test Stripe checkout at specterfy.com/account
+  □ Confirm webhook fires in Stripe dashboard after test payment
+  □ Confirm user_plans row updates in Supabase after payment
+  □ Enable Stripe Customer Portal (Part 2 Step 4)
+  □ Update billing portal URL in account/page.tsx
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — REMAINING PHASES AFTER GO-LIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE A — Auth-Aware Header + Route Protection
+  - Header shows "Account" when logged in, "Start free" when logged out
+  - Sanitize + review + dashboard redirect to /sign-in if not logged in
+  - Free users blocked after 5 sanitizes/day (counter in Supabase)
+  - Paid users bypass daily limit check
+  - Owner email bypasses all limits
+
+PHASE B — Usage Enforcement
+  - Sanitize button checks daily count against user plan before processing
+  - API route increments daily_sanitize_counts after each successful sanitize
+  - Upgrade prompt shown inline when free limit hit
+  - Paid users see "Unlimited" badge in dashboard
+
+PHASE C — Admin Panel
+  - Route: /admin (gated to infiniappsofficial@gmail.com only)
+  - View all users, emails, plan status, sanitize counts
+  - Manually override user plan
+  - Revenue summary (total paid users × price)
+  - Export user list as CSV
+
+PHASE D — Marketing + SEO
+  - Meta tags, OG images, sitemap.xml, robots.txt
+  - Landing page testimonials section (add after first 5 users)
+  - Blog/resource page for PA notary workflow tips (SEO traffic)
+  - Google Analytics or Vercel Analytics activation
+  - Schema markup for SaaS product
+
+PHASE E — Conversion Optimization
+  - Upgrade prompt banner when free limit hit mid-session
+  - Post-sanitize upsell: "You've used 4 of 5 free sanitizes today"
+  - Pricing page A/B test (monthly vs yearly default highlight)
+  - Email drip: Day 1 welcome, Day 3 tips, Day 7 upgrade nudge (via Resend)
+
+PHASE F — Product Hardening
+  - Proper error pages (404, 500)
+  - Loading skeletons on dashboard and account pages
+  - Mobile sanitize layout (two-column collapses to single-column)
+  - PDF output quality improvements
+  - Session expiry handling (auto redirect to sign-in)
+
+PHASE G — Scale & Monetization
+  - Referral system ($10 credit per referral)
+  - Annual plan renewal reminder emails
+  - Cancellation recovery flow (offer discount before cancel completes)
+  - Potential B2B tier: team seats for notary offices
