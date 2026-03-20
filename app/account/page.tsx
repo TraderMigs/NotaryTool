@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PublicHeader from '../../components/PublicHeader'
 import PublicFooter from '../../components/PublicFooter'
-import { getUser, getSession, signOut } from '@/lib/auth'
+import { getUser, getSession, signOut, updateBusinessName } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
 const OWNER_EMAIL = 'infiniappsofficial@gmail.com'
@@ -494,6 +494,9 @@ function AccountInner() {
 
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [email, setEmail] = useState('')
+  const [businessName, setBusinessName] = useState('')
+  const [businessNameSaving, setBusinessNameSaving] = useState(false)
+  const [businessNameMsg, setBusinessNameMsg] = useState('')
   const [planRow, setPlanRow] = useState<PlanRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<'monthly' | 'yearly' | null>(null)
@@ -510,21 +513,12 @@ function AccountInner() {
       const user = await getUser()
       if (!user) { router.push('/sign-in'); return }
       setEmail(user.email ?? '')
+      setBusinessName(user.user_metadata?.business_name ?? '')
       const ownerCheck = user.email === OWNER_EMAIL
       setIsOwner(ownerCheck)
-      // Use server-side endpoint — bypasses RLS, always accurate
-      try {
-        const session = await supabase!.auth.getSession()
-        const token = session.data.session?.access_token ?? ''
-        const res = await fetch('/api/usage/plan', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        })
-        if (res.ok) {
-          const json = await res.json()
-          setPlanRow(json.planRow ?? null)
-        }
-      } catch {
-        // fallback: leave planRow null (shows free)
+      if (supabase) {
+        const { data } = await supabase.from('user_plans').select('plan, status, stripe_subscription_id').eq('user_id', user.id).single()
+        setPlanRow(data ?? null)
       }
       if (ownerCheck) await loadAdminData()
       setLoading(false)
@@ -543,6 +537,18 @@ function AccountInner() {
     } catch (err) {
       console.error('Admin load error:', err)
     }
+  }
+
+  async function handleSaveBusinessName() {
+    setBusinessNameSaving(true)
+    const { error } = await updateBusinessName(businessName)
+    setBusinessNameSaving(false)
+    if (error) {
+      setBusinessNameMsg('Failed to save.')
+    } else {
+      setBusinessNameMsg('Saved.')
+    }
+    setTimeout(() => setBusinessNameMsg(''), 2500)
   }
 
   async function handleUpgrade(plan: 'monthly' | 'yearly') {
@@ -629,6 +635,29 @@ function AccountInner() {
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)', marginBottom: '6px' }}>Email</div>
               <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: 500 }}>{email}</div>
+            </div>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)', marginBottom: '8px' }}>Business name <span style={{ fontSize: '10px', color: 'var(--text-faint)', fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}> — shown on fee receipts</span></div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="field-input"
+                  placeholder="e.g. Smith Notary Services"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                  style={{ flex: 1, minWidth: '180px', fontSize: '14px', padding: '8px 12px' }}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleSaveBusinessName}
+                  disabled={businessNameSaving}
+                  style={{ fontSize: '13px', padding: '8px 16px', flexShrink: 0, opacity: businessNameSaving ? 0.6 : 1 }}
+                >
+                  {businessNameSaving ? 'Saving…' : 'Save'}
+                </button>
+                {businessNameMsg && <span style={{ fontSize: '12px', color: 'var(--cyan)', fontWeight: 500 }}>{businessNameMsg}</span>}
+              </div>
             </div>
             <div style={{ padding: '20px 24px' }}>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)', marginBottom: '6px' }}>Current plan</div>
