@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PublicHeader from '../../components/PublicHeader'
 import PublicFooter from '../../components/PublicFooter'
@@ -25,123 +25,127 @@ type AdminUser = {
   last_sign_in_at: string | null
   plan: string | null
   status: string | null
+  suspended: boolean
   total_sanitizes: number
+  total_pages: number
+  total_value_cents: number
 }
 
-// ── Admin Tab ────────────────────────────────────────────────
+type Totals = { total_pages: number; total_value_cents: number }
+type AuditEntry = { id: string; action: string; target_email: string | null; details: string | null; performed_at: string }
 
-function AdminTab() {
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(true)
+// ── Shared token helper ──────────────────────────────────────
+async function getToken() {
+  const { data } = await supabase!.auth.getSession()
+  return data.session?.access_token ?? ''
+}
+
+async function adminCall(body: object) {
+  const token = await getToken()
+  const res = await fetch('/api/admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+// ── Users Tab ────────────────────────────────────────────────
+function UsersTab({ users, totals, onReload, msg, setMsg }: {
+  users: AdminUser[]
+  totals: Totals
+  onReload: () => void
+  msg: string
+  setMsg: (m: string) => void
+}) {
   const [search, setSearch] = useState('')
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => { loadUsers() }, [])
-
-  async function getToken() {
-    const { data } = await supabase!.auth.getSession()
-    return data.session?.access_token ?? ''
-  }
-
-  async function loadUsers() {
-    setLoading(true)
-    try {
-      const token = await getToken()
-      const res = await fetch('/api/admin', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const json = await res.json()
-      if (json.users) setUsers(json.users as AdminUser[])
-    } catch (err) {
-      console.error('Failed to load admin users:', err)
-    }
-    setLoading(false)
-  }
-
-  async function overridePlan(userId: string, plan: string) {
-    try {
-      const token = await getToken()
-      const res = await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ userId, plan }),
-      })
-      const json = await res.json()
-      if (json.error) { setMsg(`Error: ${json.error}`); return }
-      setMsg(`Plan set to ${plan}`)
-      setTimeout(() => setMsg(''), 2500)
-      await loadUsers()
-    } catch {
-      setMsg('Override failed.')
-      setTimeout(() => setMsg(''), 2500)
-    }
-  }
-
-  function exportCSV() {
-    const header = ['Email', 'Plan', 'Status', 'Total Sanitizes', 'Created']
-    const rows = users.map(u => [
-      u.email, u.plan ?? 'free', u.status ?? 'active', u.total_sanitizes,
-      new Date(u.created_at).toLocaleDateString(),
-    ])
-    const csv = [header, ...rows].map(r => r.map(String).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `specterfy-users-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-  }
+  const [hideEmails, setHideEmails] = useState(false)
 
   const filtered = users.filter(u =>
     (u.email ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (u.plan ?? '').includes(search.toLowerCase())
   )
 
-  const paidMonthly = users.filter(u => u.plan === 'monthly' && u.status === 'active').length
-  const paidYearly = users.filter(u => u.plan === 'yearly' && u.status === 'active').length
-  const mrr = (paidMonthly * MONTHLY_PRICE) + (paidYearly * (YEARLY_PRICE / 12))
-  const totalFilesProcessed = users.reduce((s, u) => s + (u.total_sanitizes ?? 0), 0)
-  const totalRevenue = (paidMonthly * MONTHLY_PRICE) + (paidYearly * YEARLY_PRICE)
+  // Stable order for User # numbering
+  const sortedByDate = [...users].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  const userNumberMap: Record<string, number> = {}
+  sortedByDate.forEach((u, i) => { userNumberMap[u.id] = i + 1 })
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading users…</p>
+  function displayEmail(u: AdminUser) {
+    return hideEmails ? `User #${userNumberMap[u.id]}` : (u.email || '—')
+  }
+
+  async function overridePlan(userId: string, email: string, plan: string) {
+    const json = await adminCall({ action: 'override_plan', userId, email, plan })
+    setMsg(json.error ? `Error: ${json.error}` : `Plan set to ${plan}`)
+    setTimeout(() => setMsg(''), 2500)
+    onReload()
+  }
+
+  function exportCSV() {
+    const header = ['User #', 'Email', 'Plan', 'Status', 'Runs', 'Pages', 'Value Generated', 'Created']
+    const rows = sortedByDate.map((u, i) => [
+      `#${i + 1}`,
+      hideEmails ? `User #${i + 1}` : u.email,
+      u.plan ?? 'free',
+      u.suspended ? 'suspended' : (u.status ?? 'active'),
+      u.total_sanitizes,
+      u.total_pages,
+      `$${(u.total_value_cents / 100).toFixed(2)}`,
+      new Date(u.created_at).toLocaleDateString(),
+    ])
+    const csv = [header, ...rows].map(r => r.map(String).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = `specterfy-users-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+  }
+
+  const totalValueDollars = (totals.total_value_cents / 100).toFixed(2)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+      {/* Summary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
         {[
           { label: 'Total users', value: users.length },
           { label: 'Free', value: users.filter(u => !u.plan || u.plan === 'free').length },
-          { label: 'Monthly paid', value: paidMonthly },
-          { label: 'Yearly paid', value: paidYearly },
-          { label: 'Files processed', value: totalFilesProcessed },
-          { label: 'MRR', value: `$${mrr.toFixed(2)}` },
-          { label: 'Total revenue', value: `$${totalRevenue.toFixed(2)}` },
+          { label: 'Monthly paid', value: users.filter(u => u.plan === 'monthly' && u.status === 'active').length },
+          { label: 'Yearly paid', value: users.filter(u => u.plan === 'yearly' && u.status === 'active').length },
+          { label: 'Files processed', value: users.reduce((s, u) => s + u.total_sanitizes, 0) },
+          { label: 'Pages processed', value: totals.total_pages },
+          { label: 'Value generated', value: `$${totalValueDollars}` },
         ].map(s => (
-          <div key={s.label} style={{ background: 'var(--bg-card)', padding: '18px 16px' }}>
-            <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '8px' }}>{s.label}</div>
+          <div key={s.label} style={{ background: 'var(--bg-card)', padding: '18px 14px' }}>
+            <div style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '8px' }}>{s.label}</div>
             <div style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{s.value}</div>
           </div>
         ))}
       </div>
 
+      {/* Value generated note */}
+      <div style={{ background: 'rgba(0,200,240,0.04)', border: '1px solid var(--border-cyan)', borderRadius: '8px', padding: '10px 16px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--cyan-dim)', margin: 0 }}>
+          <strong style={{ color: 'var(--cyan)' }}>Value generated</strong> = total pages processed × $5 witness fee. Lifetime cumulative. Updates in real time.
+        </p>
+      </div>
+
+      {/* Controls */}
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <input
-          className="field-input"
-          placeholder="Search by email or plan…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ maxWidth: '280px', flex: 1 }}
-        />
-        <button type="button" className="btn-secondary" onClick={exportCSV} style={{ fontSize: '13px', padding: '9px 16px' }}>
-          Export CSV
+        <input className="field-input" placeholder="Search by email or plan…" value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: '260px', flex: 1 }} />
+        <button type="button" className="btn-secondary" onClick={() => setHideEmails(h => !h)} style={{ fontSize: '13px', padding: '9px 16px' }}>
+          {hideEmails ? '👁 Show emails' : '🙈 Hide emails'}
         </button>
+        <button type="button" className="btn-secondary" onClick={exportCSV} style={{ fontSize: '13px', padding: '9px 16px' }}>Export CSV</button>
         {msg && <span style={{ fontSize: '12px', color: 'var(--cyan)', fontWeight: 500 }}>{msg}</span>}
       </div>
 
+      {/* User table */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.7fr 1.2fr', gap: '0', borderBottom: '1px solid var(--border)', padding: '10px 16px', minWidth: '600px' }}>
-          {['Email', 'Plan', 'Status', 'Uses', 'Override'].map(h => (
-            <div key={h} style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)' }}>{h}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '0.4fr 2fr 1fr 1fr 0.6fr 0.8fr 0.8fr 1.4fr', gap: '0', borderBottom: '1px solid var(--border)', padding: '10px 14px', minWidth: '800px' }}>
+          {['#', 'Email', 'Plan', 'Status', 'Runs', 'Pages', 'Value', 'Override'].map(h => (
+            <div key={h} style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)' }}>{h}</div>
           ))}
         </div>
 
@@ -151,36 +155,37 @@ function AdminTab() {
           </div>
         ) : filtered.map((u, i) => (
           <div key={u.id} style={{
-            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.7fr 1.2fr', gap: '0',
-            padding: '11px 16px', alignItems: 'center',
+            display: 'grid', gridTemplateColumns: '0.4fr 2fr 1fr 1fr 0.6fr 0.8fr 0.8fr 1.4fr', gap: '0',
+            padding: '10px 14px', alignItems: 'center',
             borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
-            background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-            minWidth: '600px',
+            background: u.suspended ? 'rgba(255,100,0,0.04)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+            minWidth: '800px',
           }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all', paddingRight: '10px' }}>{u.email || '—'}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-faint)', fontWeight: 500 }}>#{userNumberMap[u.id]}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-all', paddingRight: '8px' }}>
+              {displayEmail(u)}
+              {u.suspended && <span style={{ marginLeft: '6px', fontSize: '9px', background: 'rgba(255,100,0,0.15)', border: '1px solid rgba(255,100,0,0.3)', color: 'rgba(255,150,50,0.9)', borderRadius: '3px', padding: '1px 5px', fontWeight: 600 }}>SUSPENDED</span>}
+            </div>
             <div>
               <span style={{
                 fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
-                borderRadius: '4px', padding: '2px 7px',
+                borderRadius: '4px', padding: '2px 6px',
                 background: (u.plan === 'monthly' || u.plan === 'yearly') ? 'var(--cyan-glow)' : 'rgba(255,255,255,0.05)',
                 border: (u.plan === 'monthly' || u.plan === 'yearly') ? '1px solid var(--border-cyan)' : '1px solid var(--border)',
                 color: (u.plan === 'monthly' || u.plan === 'yearly') ? 'var(--cyan)' : 'var(--text-muted)',
               }}>{u.plan ?? 'free'}</span>
             </div>
             <div style={{ fontSize: '12px', color: u.status === 'past_due' ? 'rgba(255,200,80,0.8)' : 'var(--text-muted)' }}>{u.status ?? 'active'}</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>{u.total_sanitizes}</div>
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{u.total_sanitizes}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{u.total_pages}</div>
+            <div style={{ fontSize: '12px', color: 'var(--cyan-dim)', fontWeight: 600 }}>${(u.total_value_cents / 100).toFixed(2)}</div>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {['free', 'monthly', 'yearly'].map(plan => (
-                <button key={plan} type="button"
-                  onClick={() => overridePlan(u.id, plan)}
+                <button key={plan} type="button" onClick={() => overridePlan(u.id, u.email, plan)}
                   disabled={u.plan === plan || (!u.plan && plan === 'free')}
-                  style={{
-                    fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '10px', fontWeight: 600,
-                    padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', background: 'none',
-                    border: '1px solid var(--border)', color: 'var(--text-muted)', textTransform: 'capitalize' as const,
-                    opacity: (u.plan === plan || (!u.plan && plan === 'free')) ? 0.35 : 1,
-                  }}
-                >{plan}</button>
+                  style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '9px', fontWeight: 600, padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', textTransform: 'capitalize' as const, opacity: (u.plan === plan || (!u.plan && plan === 'free')) ? 0.3 : 1 }}>
+                  {plan}
+                </button>
               ))}
             </div>
           </div>
@@ -188,14 +193,274 @@ function AdminTab() {
       </div>
 
       <p style={{ fontSize: '12px', color: 'var(--text-faint)' }}>
-        Override changes user_plans table directly. All actions are permanent.
+        Plan overrides are permanent. Hide emails before sharing screenshots.
       </p>
     </div>
   )
 }
 
-// ── Main Account Page ────────────────────────────────────────
+// ── Revenue Tab ──────────────────────────────────────────────
+function RevenueTab({ users }: { users: AdminUser[] }) {
+  const paidMonthly = users.filter(u => u.plan === 'monthly' && u.status === 'active').length
+  const paidYearly = users.filter(u => u.plan === 'yearly' && u.status === 'active').length
+  const mrr = (paidMonthly * MONTHLY_PRICE) + (paidYearly * (YEARLY_PRICE / 12))
+  const arr = (paidMonthly * MONTHLY_PRICE * 12) + (paidYearly * YEARLY_PRICE)
+  const totalRevenue = (paidMonthly * MONTHLY_PRICE) + (paidYearly * YEARLY_PRICE)
 
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '760px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+        {[
+          { label: 'MRR', value: `$${mrr.toFixed(2)}`, note: 'Monthly recurring revenue' },
+          { label: 'ARR', value: `$${arr.toFixed(2)}`, note: 'Annual run rate' },
+          { label: 'Total revenue', value: `$${totalRevenue.toFixed(2)}`, note: 'Lifetime subscription income' },
+          { label: 'Monthly paid', value: paidMonthly, note: `${paidMonthly} × $${MONTHLY_PRICE}/mo` },
+          { label: 'Yearly paid', value: paidYearly, note: `${paidYearly} × $${YEARLY_PRICE}/yr` },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--bg-card)', padding: '22px 18px' }}>
+            <div style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '10px' }}>{s.label}</div>
+            <div style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '26px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--text-primary)', marginBottom: '4px' }}>{s.value}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{s.note}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)', marginBottom: '14px' }}>Revenue breakdown</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Monthly subscribers</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 600 }}>{paidMonthly} × ${MONTHLY_PRICE} = ${(paidMonthly * MONTHLY_PRICE).toFixed(2)}/mo</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Yearly subscribers</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 600 }}>{paidYearly} × ${YEARLY_PRICE} = ${(paidYearly * YEARLY_PRICE).toFixed(2)}/yr</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Yearly equivalent monthly</span>
+            <span style={{ fontSize: '14px', color: 'var(--cyan)', fontWeight: 600 }}>${(YEARLY_PRICE / 12).toFixed(2)}/mo per yearly subscriber</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Admin Tab (God-tier) ─────────────────────────────────────
+function AdminGodTab({ users, settings, onReload }: {
+  users: AdminUser[]
+  settings: Record<string, string>
+  onReload: () => void
+}) {
+  const [actionMsg, setActionMsg] = useState('')
+  const [actionLoading, setActionLoading] = useState('')
+  const [broadcastSubject, setBroadcastSubject] = useState('')
+  const [broadcastMsg, setBroadcastMsg] = useState('')
+  const [maintenanceMsg, setMaintenanceMsg] = useState(settings.maintenance_message ?? '')
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([])
+  const [showAudit, setShowAudit] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const maintenanceOn = settings.maintenance_mode === 'true'
+
+  function flash(msg: string) {
+    setActionMsg(msg)
+    setTimeout(() => setActionMsg(''), 3000)
+  }
+
+  async function act(action: string, userId?: string, email?: string, extra?: object) {
+    setActionLoading(action + (userId ?? ''))
+    const json = await adminCall({ action, userId, email, ...extra })
+    setActionLoading('')
+    if (json.error) { flash(`Error: ${json.error}`); return json }
+    flash(json.sent !== undefined ? `Sent to ${json.sent} users` : 'Done')
+    onReload()
+    return json
+  }
+
+  async function loadAuditLog() {
+    const token = await getToken()
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ action: 'get_audit_log' }),
+    })
+    const json = await res.json()
+    setAuditLog(json.logs ?? [])
+    setShowAudit(true)
+  }
+
+  async function downloadUserData(userId: string, email: string) {
+    const json = await adminCall({ action: 'download_user_data', userId, email })
+    if (json.data) {
+      const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: 'application/json' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `user-data-${email}-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+      {actionMsg && (
+        <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: 'var(--cyan)' }}>
+          {actionMsg}
+        </div>
+      )}
+
+      {/* Maintenance Mode */}
+      <div style={{ background: 'var(--bg-card)', border: `1px solid ${maintenanceOn ? 'rgba(255,160,0,0.3)' : 'var(--border)'}`, borderRadius: '12px', padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: maintenanceOn ? 'rgba(255,200,80,0.9)' : 'var(--text-secondary)' }}>
+              Maintenance Mode {maintenanceOn && '— ACTIVE'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>
+              Blocks the sanitize tool for all non-owner users with a message.
+            </div>
+          </div>
+          <button type="button"
+            className={maintenanceOn ? 'btn-secondary' : 'btn-primary'}
+            style={{ fontSize: '13px', padding: '9px 18px' }}
+            disabled={actionLoading === 'set_maintenance'}
+            onClick={() => act('set_maintenance', undefined, undefined, { enabled: !maintenanceOn, message: maintenanceMsg })}>
+            {maintenanceOn ? 'Disable maintenance' : 'Enable maintenance'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input className="field-input" placeholder="Maintenance message shown to users…" value={maintenanceMsg}
+            onChange={e => setMaintenanceMsg(e.target.value)} style={{ flex: 1 }} />
+          <button type="button" className="btn-secondary" style={{ fontSize: '13px', padding: '9px 14px', flexShrink: 0 }}
+            onClick={() => act('update_setting', undefined, undefined, { key: 'maintenance_message', value: maintenanceMsg })}>
+            Save message
+          </button>
+        </div>
+      </div>
+
+      {/* Broadcast Email */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Broadcast Email</div>
+        <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginBottom: '14px' }}>Sends to all {users.length} users.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <input className="field-input" placeholder="Subject line…" value={broadcastSubject} onChange={e => setBroadcastSubject(e.target.value)} />
+          <textarea
+            className="field-input"
+            placeholder="Message body (HTML supported)…"
+            value={broadcastMsg}
+            onChange={e => setBroadcastMsg(e.target.value)}
+            rows={4}
+            style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '13px' }}
+          />
+          <button type="button" className="btn-primary" style={{ alignSelf: 'flex-start', fontSize: '13px', padding: '9px 20px' }}
+            disabled={!broadcastSubject || !broadcastMsg || actionLoading === 'broadcast_email'}
+            onClick={() => act('broadcast_email', undefined, undefined, { subject: broadcastSubject, message: broadcastMsg })}>
+            {actionLoading === 'broadcast_email' ? 'Sending…' : `Send to all ${users.length} users`}
+          </button>
+        </div>
+      </div>
+
+      {/* Per-user actions */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>User Actions</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>Force reset, suspend, delete, download data.</div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          {users.map((u, i) => (
+            <div key={u.id} style={{
+              display: 'grid', gridTemplateColumns: '2fr auto',
+              padding: '12px 20px', alignItems: 'center', gap: '12px',
+              borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
+              background: u.suspended ? 'rgba(255,100,0,0.04)' : 'transparent',
+            }}>
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{u.email || '—'}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-faint)', marginTop: '2px' }}>
+                  {u.plan ?? 'free'} · {u.status ?? 'active'} · {u.total_pages} pages · ${(u.total_value_cents / 100).toFixed(2)} value
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {/* Force password reset */}
+                <button type="button" onClick={() => act('force_password_reset', u.id, u.email)}
+                  disabled={actionLoading === 'force_password_reset' + u.id}
+                  style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', whiteSpace: 'nowrap' as const }}>
+                  Reset PW
+                </button>
+                {/* Suspend / Unsuspend */}
+                {u.suspended ? (
+                  <button type="button" onClick={() => act('unsuspend_account', u.id, u.email)}
+                    style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'rgba(0,200,240,0.08)', border: '1px solid var(--border-cyan)', color: 'var(--cyan)', whiteSpace: 'nowrap' as const }}>
+                    Unsuspend
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => act('suspend_account', u.id, u.email)}
+                    style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'rgba(255,160,0,0.07)', border: '1px solid rgba(255,160,0,0.2)', color: 'rgba(255,200,80,0.9)', whiteSpace: 'nowrap' as const }}>
+                    Suspend
+                  </button>
+                )}
+                {/* Download data */}
+                <button type="button" onClick={() => downloadUserData(u.id, u.email)}
+                  style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', whiteSpace: 'nowrap' as const }}>
+                  Export data
+                </button>
+                {/* Delete — requires confirm */}
+                {confirmDelete === u.id ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,80,80,0.9)' }}>Confirm?</span>
+                    <button type="button" onClick={() => { act('delete_account', u.id, u.email); setConfirmDelete(null) }}
+                      style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 700, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'rgba(255,50,50,0.15)', border: '1px solid rgba(255,50,50,0.3)', color: 'rgba(255,100,100,0.9)', whiteSpace: 'nowrap' as const }}>
+                      Yes, delete
+                    </button>
+                    <button type="button" onClick={() => setConfirmDelete(null)}
+                      style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', whiteSpace: 'nowrap' as const }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setConfirmDelete(u.id)}
+                    style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: 'rgba(255,100,100,0.8)', whiteSpace: 'nowrap' as const }}>
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Audit Log */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showAudit ? '14px' : '0' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Audit Log</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '2px' }}>Last 100 admin actions.</div>
+          </div>
+          <button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '7px 14px' }} onClick={loadAuditLog}>
+            {showAudit ? 'Refresh' : 'View log'}
+          </button>
+        </div>
+        {showAudit && auditLog.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0', borderTop: '1px solid var(--border)' }}>
+            {auditLog.map((entry, i) => (
+              <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr auto', gap: '8px', padding: '9px 0', borderBottom: i < auditLog.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', color: 'var(--cyan-dim)', fontWeight: 500 }}>{entry.action.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{entry.target_email ?? '—'}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{entry.details ?? '—'}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-faint)', whiteSpace: 'nowrap' as const }}>{new Date(entry.performed_at).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {showAudit && auditLog.length === 0 && (
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', paddingTop: '12px' }}>No audit entries yet.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Account Page ────────────────────────────────────────
 function AccountInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -210,6 +475,12 @@ function AccountInner() {
   const [upgrading, setUpgrading] = useState<'monthly' | 'yearly' | null>(null)
   const [isOwner, setIsOwner] = useState(false)
 
+  // Owner data
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [adminTotals, setAdminTotals] = useState<Totals>({ total_pages: 0, total_value_cents: 0 })
+  const [adminSettings, setAdminSettings] = useState<Record<string, string>>({})
+  const [adminMsg, setAdminMsg] = useState('')
+
   useEffect(() => {
     async function load() {
       const user = await getUser()
@@ -221,10 +492,24 @@ function AccountInner() {
         const { data } = await supabase.from('user_plans').select('plan, status, stripe_subscription_id').eq('user_id', user.id).single()
         setPlanRow(data ?? null)
       }
+      if (ownerCheck) await loadAdminData()
       setLoading(false)
     }
     load()
   }, [router])
+
+  async function loadAdminData() {
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin', { headers: { 'Authorization': `Bearer ${token}` } })
+      const json = await res.json()
+      if (json.users) setAdminUsers(json.users)
+      if (json.totals) setAdminTotals(json.totals)
+      if (json.settings) setAdminSettings(json.settings)
+    } catch (err) {
+      console.error('Admin load error:', err)
+    }
+  }
 
   async function handleUpgrade(plan: 'monthly' | 'yearly') {
     setUpgrading(plan)
@@ -260,6 +545,13 @@ function AccountInner() {
     </div>
   )
 
+  const ownerTabs = ['account', 'billing', 'users', 'revenue', 'admin']
+  const userTabs = ['account', 'billing']
+  const tabs = isOwner ? ownerTabs : userTabs
+  const tabLabels: Record<string, string> = {
+    account: 'Account', billing: 'Billing', users: 'Users', revenue: 'Revenue', admin: 'Admin'
+  }
+
   return (
     <div className="container" style={{ paddingTop: '40px', paddingBottom: '100px' }}>
 
@@ -278,7 +570,7 @@ function AccountInner() {
         <div style={{ background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '10px', padding: '16px 20px', marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 8px var(--cyan)', flexShrink: 0 }} />
           <p style={{ fontSize: '14px', color: 'var(--cyan-dim)', margin: 0 }}>
-            Payment confirmed. Your <strong style={{ color: 'var(--cyan)' }}>{planParam}</strong> plan is now active. Unlimited sanitization is unlocked.
+            Payment confirmed. Your <strong style={{ color: 'var(--cyan)' }}>{planParam}</strong> plan is now active.
           </p>
         </div>
       )}
@@ -289,21 +581,16 @@ function AccountInner() {
       </h1>
 
       <div className="account-tabs">
-        <button type="button" className={`account-tab ${activeTab === 'account' ? 'active' : ''}`} onClick={() => setActiveTab('account')}>
-          Account
-        </button>
-        <button type="button" className={`account-tab ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-          Billing
-        </button>
-        {isOwner && (
-          <button type="button" className={`account-tab ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>
-            Admin
+        {tabs.map(tab => (
+          <button key={tab} type="button" className={`account-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+            {tabLabels[tab]}
           </button>
-        )}
+        ))}
       </div>
 
+      {/* ── Account Tab ── */}
       {activeTab === 'account' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px', paddingTop: '28px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-faint)', marginBottom: '6px' }}>Email</div>
@@ -318,7 +605,6 @@ function AccountInner() {
               </div>
             </div>
           </div>
-
           <div style={{ display: 'flex', gap: '10px' }}>
             <Link href="/sanitize" className="btn-primary">Open tool</Link>
             <button type="button" onClick={signOut} className="btn-secondary">Sign out</button>
@@ -326,8 +612,9 @@ function AccountInner() {
         </div>
       )}
 
+      {/* ── Billing Tab ── */}
       {activeTab === 'billing' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px', paddingTop: '28px' }}>
           {!isPaid && !isOwner && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px' }}>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '14px' }}>Upgrade to unlimited</div>
@@ -351,7 +638,6 @@ function AccountInner() {
               </div>
             </div>
           )}
-
           {isPaid && !isOwner && planRow?.stripe_subscription_id && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
@@ -363,7 +649,6 @@ function AccountInner() {
               </a>
             </div>
           )}
-
           {isOwner && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-cyan)', borderRadius: '12px', padding: '20px 24px' }}>
               <div style={{ fontSize: '14px', color: 'var(--cyan)', fontWeight: 600 }}>Owner — Lifetime access</div>
@@ -373,7 +658,26 @@ function AccountInner() {
         </div>
       )}
 
-      {activeTab === 'admin' && isOwner && <AdminTab />}
+      {/* ── Users Tab ── */}
+      {activeTab === 'users' && isOwner && (
+        <div style={{ paddingTop: '28px' }}>
+          <UsersTab users={adminUsers} totals={adminTotals} onReload={loadAdminData} msg={adminMsg} setMsg={setAdminMsg} />
+        </div>
+      )}
+
+      {/* ── Revenue Tab ── */}
+      {activeTab === 'revenue' && isOwner && (
+        <div style={{ paddingTop: '28px' }}>
+          <RevenueTab users={adminUsers} />
+        </div>
+      )}
+
+      {/* ── Admin Tab ── */}
+      {activeTab === 'admin' && isOwner && (
+        <div style={{ paddingTop: '28px' }}>
+          <AdminGodTab users={adminUsers} settings={adminSettings} onReload={loadAdminData} />
+        </div>
+      )}
 
     </div>
   )
