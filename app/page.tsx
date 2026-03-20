@@ -52,8 +52,10 @@ export default function HomePage() {
             position: 'fixed', inset: 0, zIndex: 500,
             background: 'rgba(2, 8, 16, 0.85)',
             backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '24px',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: 'calc(var(--header-h, 64px) + 16px) 20px 20px',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch' as const,
           }}
           onClick={() => setPaOpen(false)}
         >
@@ -67,6 +69,7 @@ export default function HomePage() {
               width: '100%',
               position: 'relative',
               boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+              flexShrink: 0,
             }}
             onClick={e => e.stopPropagation()}
           >
