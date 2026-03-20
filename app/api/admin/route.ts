@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
-// Admin data endpoint — uses service role to read admin_user_summary view
-// Only callable by the owner session (verified by checking user email)
+// Admin data endpoint — service role only
+// Reads user_plans directly (view joins auth.users which can have RLS issues)
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,35 +13,61 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient()
     if (!supabase) return NextResponse.json({ error: 'Server error.' }, { status: 500 })
 
-    // Verify the requesting user is the owner
+    // Verify owner
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
     if (user.email !== 'infiniappsofficial@gmail.com') {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
     }
 
-    // Service role can read auth.users via the view
-    const { data, error } = await supabase
-      .from('admin_user_summary')
-      .select('*')
-      .order('created_at', { ascending: false })
+    // Query user_plans (service role bypasses RLS)
+    const { data: plans, error: plansError } = await supabase
+      .from('user_plans')
+      .select('user_id, plan, status, stripe_customer_id, stripe_subscription_id, updated_at')
+      .order('updated_at', { ascending: false })
 
-    if (error) {
-      console.error('Admin query error:', error)
-      // Fallback: just return user_plans if view fails
-      const { data: plans, error: plansError } = await supabase
-        .from('user_plans')
-        .select('user_id, plan, status, updated_at')
-      if (plansError) return NextResponse.json({ error: 'Failed to load users.' }, { status: 500 })
-      return NextResponse.json({ users: plans?.map((p: any) => ({
-        id: p.user_id, email: '—', created_at: p.updated_at,
-        last_sign_in_at: null, plan: p.plan, status: p.status, total_sanitizes: 0,
-      })) ?? [] })
+    if (plansError) {
+      console.error('user_plans error:', plansError)
+      return NextResponse.json({ error: 'Failed to load plans.' }, { status: 500 })
     }
 
-    return NextResponse.json({ users: data ?? [] })
+    // Get sanitize counts per user
+    const { data: counts } = await supabase
+      .from('daily_sanitize_counts')
+      .select('user_id, count')
+
+    // Aggregate sanitize counts per user
+    const countMap: Record<string, number> = {}
+    for (const row of counts ?? []) {
+      countMap[row.user_id] = (countMap[row.user_id] ?? 0) + (row.count ?? 0)
+    }
+
+    // Try to get emails from auth.users via the view (may fail — handled gracefully)
+    let emailMap: Record<string, string> = {}
+    const { data: viewData } = await supabase
+      .from('admin_user_summary')
+      .select('id, email')
+    if (viewData) {
+      for (const row of viewData) {
+        if (row.id && row.email) emailMap[row.id] = row.email
+      }
+    }
+
+    const users = (plans ?? []).map((p: any) => ({
+      id: p.user_id,
+      email: emailMap[p.user_id] ?? '—',
+      created_at: p.updated_at,
+      last_sign_in_at: null,
+      plan: p.plan,
+      status: p.status,
+      stripe_customer_id: p.stripe_customer_id,
+      stripe_subscription_id: p.stripe_subscription_id,
+      total_sanitizes: countMap[p.user_id] ?? 0,
+    }))
+
+    return NextResponse.json({ users })
   } catch (err) {
-    console.error('Admin route error:', err)
+    console.error('Admin GET error:', err)
     return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }
@@ -74,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('Admin override error:', err)
+    console.error('Admin POST error:', err)
     return NextResponse.json({ error: 'Server error.' }, { status: 500 })
   }
 }
