@@ -107,7 +107,7 @@ function AdminTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
         {[
           { label: 'Total users', value: users.length },
           { label: 'Free', value: users.filter(u => !u.plan || u.plan === 'free').length },
