@@ -61,6 +61,7 @@ export default function SanitizePage() {
   const [pageCount, setPageCount] = useState(0);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [pageRectsMap, setPageRectsMap] = useState<PageRectsMap>({});
+  const [rectsHistory, setRectsHistory] = useState<PageRectsMap[]>([]); // undo stack
   const [pointerDraft, setPointerDraft] = useState<PointerDraft>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -179,7 +180,7 @@ export default function SanitizePage() {
   // ── Touch handlers (mobile finger) ───────────────────────
   // These fire when touch-action:none is set, preventing scroll interference
   const handleTouchStart = useCallback((pn: number, e: React.TouchEvent<HTMLDivElement>) => {
-    if (busy || scrollLocked) return;
+    if (busy || !scrollLocked) return;
     const touch = e.touches[0];
     const pt = getNormCoords(e.currentTarget, touch.clientX, touch.clientY);
     const draft = { pageNumber: pn, originX: pt.x, originY: pt.y, currentX: pt.x, currentY: pt.y };
@@ -203,11 +204,33 @@ export default function SanitizePage() {
     drawingRef.current = null;
     setPointerDraft(null);
     if (!rect) return;
-    setPageRectsMap(c => ({ ...c, [pn]: [...(c[pn] ?? []), rect] }));
+    setPageRectsMap(c => {
+      setRectsHistory(h => [...h, c]);
+      return { ...c, [pn]: [...(c[pn] ?? []), rect] };
+    });
   }, []);
 
   function clearPage(pn: number) {
+    setRectsHistory(h => [...h, pageRectsMap]);
     setPageRectsMap(c => { const n = { ...c }; delete n[pn]; return n; });
+  }
+
+  function undoLast() {
+    setRectsHistory(h => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setPageRectsMap(prev);
+      return h.slice(0, -1);
+    });
+  }
+
+  function removeRect(pn: number, idx: number) {
+    setRectsHistory(h => [...h, pageRectsMap]);
+    setPageRectsMap(c => {
+      const updated = [...(c[pn] ?? [])];
+      updated.splice(idx, 1);
+      return { ...c, [pn]: updated };
+    });
   }
 
   async function handleGenerate() {
@@ -293,7 +316,31 @@ export default function SanitizePage() {
           >
             <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: '100%', display: 'block', pointerEvents: 'none' }} draggable={false} />
             {rects.map((rect, idx) => (
-              <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 1, ...getRectStyle(rect) }} />
+              <div
+                key={`${page.pageNumber}-${idx}`}
+                title="Tap or click to remove this box"
+                onClick={(e) => { e.stopPropagation(); removeRect(page.pageNumber, idx); }}
+                onMouseEnter={(e) => { const x = e.currentTarget.querySelector('.brx') as HTMLElement; if (x) x.style.opacity = '1'; }}
+                onMouseLeave={(e) => { const x = e.currentTarget.querySelector('.brx') as HTMLElement; if (x) x.style.opacity = '0'; }}
+                style={{
+                  position: 'absolute', background: '#000', opacity: 1,
+                  ...getRectStyle(rect),
+                  cursor: 'pointer',
+                }}
+              >
+                <div className="brx" style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%,-50%)',
+                  width: '22px', height: '22px', borderRadius: '50%',
+                  background: 'rgba(255,50,50,0.9)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: 800, color: '#fff',
+                  opacity: 0,
+                  transition: 'opacity 0.12s',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                }}>✕</div>
+              </div>
             ))}
             {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
               <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.28)', border: '2px solid var(--cyan)', borderRadius: '2px', ...getRectStyle(liveDraftRect) }} />
@@ -381,6 +428,13 @@ export default function SanitizePage() {
               </div>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{progressLabel}</span>
             </div>
+            <button
+              type="button"
+              onClick={undoLast}
+              disabled={rectsHistory.length === 0 || busy}
+              style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600, padding: '9px 14px', borderRadius: '6px', cursor: rectsHistory.length > 0 ? 'pointer' : 'not-allowed', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', opacity: rectsHistory.length > 0 ? 1 : 0.35, flexShrink: 0, transition: 'all 0.15s' }}>
+              ↩ Undo
+            </button>
             <button type="button" className="btn-primary"
               disabled={!canGenerate}
               onClick={handleGenerate}

@@ -38,34 +38,43 @@ function AdminTab() {
 
   useEffect(() => { loadUsers() }, [])
 
+  async function getToken() {
+    const { data } = await supabase!.auth.getSession()
+    return data.session?.access_token ?? ''
+  }
+
   async function loadUsers() {
-    if (!supabase) return
-    const { data, error } = await supabase
-      .from('admin_user_summary')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error && data) setUsers(data as AdminUser[])
-    else {
-      const { data: plans } = await supabase
-        .from('user_plans')
-        .select('user_id, plan, status, updated_at')
-      setUsers(plans?.map((p: any) => ({
-        id: p.user_id, email: '—', created_at: p.updated_at,
-        last_sign_in_at: null, plan: p.plan, status: p.status, total_sanitizes: 0,
-      })) ?? [])
+    setLoading(true)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const json = await res.json()
+      if (json.users) setUsers(json.users as AdminUser[])
+    } catch (err) {
+      console.error('Failed to load admin users:', err)
     }
     setLoading(false)
   }
 
   async function overridePlan(userId: string, plan: string) {
-    if (!supabase) return
-    await supabase.from('user_plans').upsert({
-      user_id: userId, plan, status: plan === 'free' ? 'cancelled' : 'active',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-    setMsg(`Plan set to ${plan}`)
-    setTimeout(() => setMsg(''), 2500)
-    await loadUsers()
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, plan }),
+      })
+      const json = await res.json()
+      if (json.error) { setMsg(`Error: ${json.error}`); return }
+      setMsg(`Plan set to ${plan}`)
+      setTimeout(() => setMsg(''), 2500)
+      await loadUsers()
+    } catch {
+      setMsg('Override failed.')
+      setTimeout(() => setMsg(''), 2500)
+    }
   }
 
   function exportCSV() {
