@@ -6,8 +6,40 @@ import { useState } from 'react'
 import PublicHeader from '../components/PublicHeader'
 import PublicFooter from '../components/PublicFooter'
 
+const FAQ_ITEMS = [
+  {
+    q: "Is Specterfy responsible if something goes wrong with my documents?",
+    a: "No. Specterfy is a pre-processing utility — a tool, not a legal service. You remain fully responsible for reviewing all outputs before any downstream use. We do not store your documents, access your files, or make compliance determinations. Every output you download must be reviewed by you before use.",
+  },
+  {
+    q: "What exactly does Specterfy do?",
+    a: "You upload a PDF, draw black boxes over any fields you want to redact, and Specterfy generates a clean copy with those areas permanently blocked out. That's it. Simple, fast, no guessing. The tool processes everything in your browser — nothing is sent to a server.",
+  },
+  {
+    q: "Why would a notary use this?",
+    a: "Before a document enters your official workflow — filing, scanning, forwarding to a client or attorney — you can sanitize sensitive fields that don't need to travel with it. It keeps your front-end handling clean and reduces unnecessary PII exposure in your day-to-day operations.",
+  },
+  {
+    q: "Can I use this to train my staff?",
+    a: "Absolutely. This is one of the best use cases. Walk new staff through which fields to redact, which to leave, and why. The visual draw-and-block approach makes it fast to teach and easy to repeat consistently. It also builds a good habit of reviewing every document before it moves forward.",
+  },
+  {
+    q: "What about the $5 witness fee — how does that work?",
+    a: "Pennsylvania notaries can charge up to $5 per notarized signature as a witness fee. Specterfy shows you a running tally based on page count as a quick reminder — so you never lose track of what you're owed. It's a rough estimate, not a billing tool, but it keeps the number front and center while you work.",
+  },
+  {
+    q: "How fast is it?",
+    a: "Upload, draw, generate. Most single-page documents are done in under 10 seconds. Multi-page documents take longer to render previews but the redaction generation itself is quick. No waiting on a server — it runs locally in your browser.",
+  },
+  {
+    q: "Is the redaction permanent?",
+    a: "Yes. Once you generate a clean PDF, the blocked areas are baked in. The original file is never modified — you always get a new clean copy. The preview shows a semi-transparent blue box so you can verify placement before committing. After generation, those areas are fully opaque and unrecoverable.",
+  },
+]
+
 export default function HomePage() {
   const [paOpen, setPaOpen] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
     <>
@@ -38,7 +70,6 @@ export default function HomePage() {
             }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Close button */}
             <button
               onClick={() => setPaOpen(false)}
               style={{
@@ -109,7 +140,6 @@ export default function HomePage() {
         <section className="hero-section">
           <div className="container">
 
-            {/* PA pill — clickable */}
             <button
               className="hero-pa-pill"
               onClick={() => setPaOpen(true)}
@@ -143,7 +173,6 @@ export default function HomePage() {
               <span style={{ fontSize: '11px', color: 'var(--text-faint)', marginLeft: '4px' }}>↗</span>
             </button>
 
-            {/* Logo on hero */}
             <div style={{ marginBottom: '32px' }}>
               <Image
                 src="/specterfy-logo.png"
@@ -229,13 +258,47 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── FAQ ──────────────────────── */}
+        <section className="faq-section">
+          <div className="container">
+            <div className="faq-header">
+              <p className="label">Common questions</p>
+              <h2 className="faq-headline">Straight answers.<br />No fluff.</h2>
+            </div>
+            <div className="faq-list">
+              {FAQ_ITEMS.map((item, idx) => (
+                <div key={idx} className="faq-item">
+                  <button
+                    type="button"
+                    className="faq-question"
+                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                    aria-expanded={openFaq === idx}
+                  >
+                    <span>{item.q}</span>
+                    <span className="faq-chevron" style={{ transform: openFaq === idx ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </button>
+                  {openFaq === idx && (
+                    <div className="faq-answer">
+                      <p>{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── PRICING STRIP ────────────── */}
         <section className="pricing-section">
           <div className="container">
             <div className="pricing-header">
               <p className="label">Pricing</p>
-              <h2 className="pricing-headline">Simple entry. Clean upgrade path.</h2>
-              <p className="pricing-sub">Free to start. Clean paid paths for unlimited usage.</p>
+              <h2 className="pricing-headline">Start free. Upgrade when you need more.</h2>
+              <p className="pricing-sub">5 sanitizes per day at no cost. Unlimited for $9.97/mo.</p>
             </div>
             <div className="pricing-cards">
               <div className="pricing-card">
@@ -247,7 +310,7 @@ export default function HomePage() {
               <div className="pricing-card featured">
                 <div className="pricing-badge">Monthly</div>
                 <div className="pricing-price">$9.97<span className="pricing-per">/mo</span></div>
-                <p className="pricing-desc">Unlimited sanitization. Full access.</p>
+                <p className="pricing-desc">Unlimited sanitization. No daily cap.</p>
                 <Link href="/pricing" className="btn-primary btn-full" style={{ marginTop: 'auto' }}>Choose monthly</Link>
               </div>
               <div className="pricing-card">

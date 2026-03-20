@@ -5,7 +5,7 @@ import PublicFooter from '../../components/PublicFooter'
 
 export const metadata: Metadata = {
   title: 'Pricing — Specterfy',
-  description: 'Simple, transparent pricing for Specterfy.',
+  description: 'Simple pricing for Pennsylvania notaries. 5 free sanitizes per day, or unlimited for $9.97/mo.',
 }
 
 export default function PricingPage() {
@@ -26,10 +26,10 @@ export default function PricingPage() {
               marginBottom: '14px',
               lineHeight: 1.06,
             }}>
-              Clear plans.<br />No noise.
+              Simple pricing.<br />No surprises.
             </h1>
             <p style={{ fontSize: '16px', color: 'var(--text-muted)', maxWidth: '380px', lineHeight: '1.65' }}>
-              Free access for testing. Clean paid paths for unlimited usage once the full account system is wired.
+              Start with 5 free sanitizes per day. Upgrade to unlimited whenever your volume needs it.
             </p>
           </div>
 
@@ -45,7 +45,7 @@ export default function PricingPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>5 sanitizes/day</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Account access</span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Standard output quality</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No card required</span>
                 </div>
                 <Link href="/signup" className="btn-secondary btn-full" style={{ marginTop: 'auto' }}>
                   Start free
@@ -73,7 +73,7 @@ export default function PricingPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Unlimited sanitizes</span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Full account access</span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Best value</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Best value — save 26%</span>
                 </div>
                 <Link href="/signup?plan=yearly" className="btn-secondary btn-full" style={{ marginTop: 'auto' }}>
                   Choose yearly
@@ -83,8 +83,8 @@ export default function PricingPage() {
             </div>
 
             <p style={{ marginTop: '28px', textAlign: 'center', fontSize: '13px', color: 'var(--text-faint)' }}>
-              Paid plans require account verification. Billing activates only after payment is confirmed.
-              You remain responsible for final review of all outputs.
+              Billing activates only after payment is confirmed.
+              You remain responsible for reviewing all outputs before downstream use.
             </p>
           </div>
 

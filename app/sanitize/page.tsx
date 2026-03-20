@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   NormalizedRect,
@@ -32,6 +32,15 @@ function buildDraftRect(d: PointerDraft): NormalizedRect | null {
   return normalizeRect(d.originX, d.originY, d.currentX, d.currentY);
 }
 
+// Get normalized coords from any element + clientX/Y
+function getNormCoords(el: HTMLElement, clientX: number, clientY: number) {
+  const r = el.getBoundingClientRect();
+  return {
+    x: clamp01((clientX - r.left) / r.width),
+    y: clamp01((clientY - r.top) / r.height),
+  };
+}
+
 export default function SanitizePage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
@@ -42,8 +51,9 @@ export default function SanitizePage() {
   const [todayCount, setTodayCount] = useState(0);
   const [limitHit, setLimitHit] = useState(false);
 
-  // Mobile fullscreen state
+  // Mobile fullscreen + scroll lock
   const [mobileFullscreen, setMobileFullscreen] = useState(false);
+  const [scrollLocked, setScrollLocked] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
@@ -57,6 +67,8 @@ export default function SanitizePage() {
   const [progressLabel, setProgressLabel] = useState("Waiting");
   const [error, setError] = useState("");
   const containerRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // Track active drawing per page for touch events
+  const drawingRef = useRef<PointerDraft>(null);
 
   const totalRedactions = useMemo(() => Object.values(pageRectsMap).reduce((s, r) => s + r.length, 0), [pageRectsMap]);
   const estimatedFees = useMemo(() => pageCount * 5, [pageCount]);
@@ -82,7 +94,6 @@ export default function SanitizePage() {
       }
       setAuthChecked(true);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') setSessionExpired(true);
     });
@@ -127,7 +138,7 @@ export default function SanitizePage() {
     setFile(null); setFileName(""); setFileSize(""); setPageCount(0);
     setPagePreviews([]); setPageRectsMap({}); setPointerDraft(null);
     setProgress(0); setProgressLabel("Waiting"); setError("");
-    setMobileFullscreen(false);
+    setMobileFullscreen(false); setScrollLocked(false);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -138,29 +149,63 @@ export default function SanitizePage() {
     await renderPreviewPages(f);
   }
 
-  function getNormPtr(e: React.PointerEvent<HTMLDivElement>, pn: number) {
-    const node = containerRefs.current[pn]; if (!node) return null;
-    const r = node.getBoundingClientRect();
-    return { x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height) };
-  }
+  // ── Pointer handlers (desktop + stylus) ──────────────────
   function handlePointerDown(pn: number, e: React.PointerEvent<HTMLDivElement>) {
-    if (busy) return; const pt = getNormPtr(e, pn); if (!pt) return;
+    if (busy || scrollLocked) return;
+    const pt = getNormCoords(e.currentTarget, e.clientX, e.clientY);
     e.currentTarget.setPointerCapture(e.pointerId);
-    setPointerDraft({ pageNumber: pn, originX: pt.x, originY: pt.y, currentX: pt.x, currentY: pt.y });
+    const draft = { pageNumber: pn, originX: pt.x, originY: pt.y, currentX: pt.x, currentY: pt.y };
+    drawingRef.current = draft;
+    setPointerDraft(draft);
   }
   function handlePointerMove(pn: number, e: React.PointerEvent<HTMLDivElement>) {
-    if (!pointerDraft || pointerDraft.pageNumber !== pn) return;
-    const pt = getNormPtr(e, pn); if (!pt) return;
-    setPointerDraft(c => c && c.pageNumber === pn ? { ...c, currentX: pt.x, currentY: pt.y } : c);
+    if (!drawingRef.current || drawingRef.current.pageNumber !== pn) return;
+    const pt = getNormCoords(e.currentTarget, e.clientX, e.clientY);
+    const updated = { ...drawingRef.current, currentX: pt.x, currentY: pt.y };
+    drawingRef.current = updated;
+    setPointerDraft(updated);
   }
   function handlePointerUp(pn: number, e: React.PointerEvent<HTMLDivElement>) {
-    if (!pointerDraft || pointerDraft.pageNumber !== pn) return;
-    const pt = getNormPtr(e, pn);
+    if (!drawingRef.current || drawingRef.current.pageNumber !== pn) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
-    const rect = normalizeRect(pointerDraft.originX, pointerDraft.originY, pt?.x ?? pointerDraft.currentX, pt?.y ?? pointerDraft.currentY);
-    setPointerDraft(null); if (!rect) return;
+    const d = drawingRef.current;
+    const rect = normalizeRect(d.originX, d.originY, d.currentX, d.currentY);
+    drawingRef.current = null;
+    setPointerDraft(null);
+    if (!rect) return;
     setPageRectsMap(c => ({ ...c, [pn]: [...(c[pn] ?? []), rect] }));
   }
+
+  // ── Touch handlers (mobile finger) ───────────────────────
+  // These fire when touch-action:none is set, preventing scroll interference
+  const handleTouchStart = useCallback((pn: number, e: React.TouchEvent<HTMLDivElement>) => {
+    if (busy || scrollLocked) return;
+    const touch = e.touches[0];
+    const pt = getNormCoords(e.currentTarget, touch.clientX, touch.clientY);
+    const draft = { pageNumber: pn, originX: pt.x, originY: pt.y, currentX: pt.x, currentY: pt.y };
+    drawingRef.current = draft;
+    setPointerDraft(draft);
+  }, [busy, scrollLocked]);
+
+  const handleTouchMove = useCallback((pn: number, e: React.TouchEvent<HTMLDivElement>) => {
+    if (!drawingRef.current || drawingRef.current.pageNumber !== pn) return;
+    const touch = e.touches[0];
+    const pt = getNormCoords(e.currentTarget, touch.clientX, touch.clientY);
+    const updated = { ...drawingRef.current, currentX: pt.x, currentY: pt.y };
+    drawingRef.current = updated;
+    setPointerDraft(updated);
+  }, []);
+
+  const handleTouchEnd = useCallback((pn: number, _e: React.TouchEvent<HTMLDivElement>) => {
+    if (!drawingRef.current || drawingRef.current.pageNumber !== pn) return;
+    const d = drawingRef.current;
+    const rect = normalizeRect(d.originX, d.originY, d.currentX, d.currentY);
+    drawingRef.current = null;
+    setPointerDraft(null);
+    if (!rect) return;
+    setPageRectsMap(c => ({ ...c, [pn]: [...(c[pn] ?? []), rect] }));
+  }, []);
+
   function clearPage(pn: number) {
     setPageRectsMap(c => { const n = { ...c }; delete n[pn]; return n; });
   }
@@ -208,12 +253,12 @@ export default function SanitizePage() {
   const remainingToday = Math.max(0, 5 - todayCount);
   const showUpsellNudge = !isPaid && !isOwner && !limitHit && todayCount >= 4 && authChecked;
 
-  // Shared page preview renderer (used in both desktop and mobile fullscreen)
-  function renderPages() {
+  // Shared page renderer — used in both desktop and mobile fullscreen
+  function renderPages(inFullscreen = false) {
     return pagePreviews.map((page) => {
       const rects = pageRectsMap[page.pageNumber] ?? [];
       return (
-        <article key={page.pageNumber} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '14px' }}>
+        <article key={page.pageNumber} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: inFullscreen ? '12px' : '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' as const }}>
               Page {page.pageNumber}
@@ -223,17 +268,35 @@ export default function SanitizePage() {
               Clear
             </button>
           </div>
-          <div ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
-            style={{ position: 'relative', userSelect: 'none', cursor: 'crosshair', lineHeight: 0 }}
+          {/* FIX 4: redaction hint above page */}
+          {rects.length === 0 && (
+            <div style={{ padding: '7px 14px', background: 'rgba(0,200,240,0.05)', borderBottom: '1px solid var(--border-cyan)', fontSize: '11px', color: 'var(--cyan-dim)', lineHeight: 1.5 }}>
+              Draw boxes over sensitive fields. Blue preview = placement check. Full block applied on generate.
+            </div>
+          )}
+          <div
+            ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
+            style={{
+              position: 'relative',
+              userSelect: 'none',
+              // FIX 7: touch-action none PREVENTS browser scroll from stealing touch events
+              touchAction: scrollLocked ? 'none' : 'pan-y',
+              cursor: scrollLocked ? 'crosshair' : 'default',
+              lineHeight: 0,
+            }}
             onPointerDown={(e) => handlePointerDown(page.pageNumber, e)}
             onPointerMove={(e) => handlePointerMove(page.pageNumber, e)}
-            onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}>
+            onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}
+            onTouchStart={(e) => handleTouchStart(page.pageNumber, e)}
+            onTouchMove={(e) => handleTouchMove(page.pageNumber, e)}
+            onTouchEnd={(e) => handleTouchEnd(page.pageNumber, e)}
+          >
             <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: '100%', display: 'block', pointerEvents: 'none' }} draggable={false} />
             {rects.map((rect, idx) => (
-              <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 0.88, ...getRectStyle(rect) }} />
+              <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 1, ...getRectStyle(rect) }} />
             ))}
             {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
-              <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.22)', border: '1.5px solid var(--cyan)', ...getRectStyle(liveDraftRect) }} />
+              <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.28)', border: '2px solid var(--cyan)', borderRadius: '2px', ...getRectStyle(liveDraftRect) }} />
             )}
           </div>
         </article>
@@ -256,7 +319,6 @@ export default function SanitizePage() {
     <>
       <PublicHeader />
 
-      {/* Session expiry banner */}
       {sessionExpired && (
         <div className="session-expiry-banner">
           <p>Your session expired.</p>
@@ -264,10 +326,9 @@ export default function SanitizePage() {
         </div>
       )}
 
-      {/* ══ MOBILE FULLSCREEN REDACTION OVERLAY ══ */}
+      {/* ══ MOBILE FULLSCREEN ══ */}
       {mobileFullscreen && (
         <div className="sanitize-fullscreen-overlay">
-          {/* Header bar */}
           <div className="sanitize-fullscreen-header">
             <button type="button"
               onClick={() => setMobileFullscreen(false)}
@@ -275,30 +336,45 @@ export default function SanitizePage() {
               ← Back
             </button>
             <span className="sanitize-fullscreen-title">{fileName}</span>
-            <span style={{ fontSize: '11px', color: 'var(--text-faint)', flexShrink: 0 }}>
-              {totalRedactions} box{totalRedactions !== 1 ? 'es' : ''}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{totalRedactions} box{totalRedactions !== 1 ? 'es' : ''}</span>
+              {/* FIX 6: scroll lock toggle */}
+              <button
+                type="button"
+                onClick={() => setScrollLocked(l => !l)}
+                style={{
+                  fontFamily: 'var(--dm-sans, sans-serif)',
+                  fontSize: '11px', fontWeight: 600,
+                  padding: '5px 10px', borderRadius: '5px', cursor: 'pointer',
+                  background: scrollLocked ? 'var(--cyan)' : 'none',
+                  border: scrollLocked ? 'none' : '1px solid var(--border)',
+                  color: scrollLocked ? '#020C14' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {scrollLocked ? '🔒 Drawing' : '🔓 Scroll'}
+              </button>
+            </div>
           </div>
 
           {/* Instruction strip */}
-          <div style={{ padding: '8px 16px', background: 'rgba(0,200,240,0.07)', borderBottom: '1px solid var(--border-cyan)' }}>
-            <p style={{ fontSize: '12px', color: 'var(--cyan-dim)', margin: 0, textAlign: 'center' }}>
-              Draw boxes over sensitive areas. Tap and drag to redact.
+          <div style={{ padding: '8px 16px', background: scrollLocked ? 'rgba(0,200,240,0.09)' : 'rgba(255,160,0,0.06)', borderBottom: scrollLocked ? '1px solid var(--border-cyan)' : '1px solid rgba(255,160,0,0.2)', transition: 'all 0.2s' }}>
+            <p style={{ fontSize: '12px', color: scrollLocked ? 'var(--cyan-dim)' : 'rgba(255,200,80,0.8)', margin: 0, textAlign: 'center' }}>
+              {scrollLocked
+                ? 'Drawing mode — tap and drag to draw redaction boxes'
+                : 'Scroll mode — tap 🔒 Drawing to start redacting'}
             </p>
           </div>
 
-          {/* Scrollable pages */}
           <div className="sanitize-fullscreen-scroll" style={{ padding: '12px' }}>
             {pagePreviews.length === 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--text-faint)', fontSize: '14px' }}>
                 Loading pages…
               </div>
-            ) : renderPages()}
+            ) : renderPages(true)}
           </div>
 
-          {/* Footer bar */}
           <div className="sanitize-fullscreen-footer">
-            {/* Progress */}
             <div style={{ flex: 1 }}>
               <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '5px' }}>
                 <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
@@ -330,23 +406,18 @@ export default function SanitizePage() {
             <Link href="/dashboard" className="btn-ghost">Dashboard</Link>
           </div>
 
-          {/* Limit hit banner */}
           {limitHit && (
             <div className="upgrade-nudge">
               <p><strong>Daily limit reached — 5/5 free sanitizes used.</strong> Upgrade for unlimited or come back tomorrow.</p>
               <Link href="/account?tab=billing" className="btn-primary" style={{ fontSize: '13px', padding: '9px 18px', flexShrink: 0 }}>Upgrade now</Link>
             </div>
           )}
-
-          {/* 4/5 upsell nudge */}
           {showUpsellNudge && (
             <div className="upgrade-nudge">
               <p>You've used <strong>{todayCount} of 5</strong> free sanitizes today — {remainingToday} remaining.</p>
               <Link href="/account?tab=billing" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>Upgrade →</Link>
             </div>
           )}
-
-          {/* Usage strip */}
           {!isPaid && !isOwner && !limitHit && !showUpsellNudge && authChecked && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -355,8 +426,6 @@ export default function SanitizePage() {
               <Link href="/account?tab=billing" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500 }}>Upgrade →</Link>
             </div>
           )}
-
-          {/* Unlimited badge */}
           {(isPaid || isOwner) && authChecked && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 12px', marginBottom: '20px' }}>
               <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--cyan)' }}>
@@ -376,16 +445,11 @@ export default function SanitizePage() {
 
           <div className="rule" style={{ marginBottom: '28px' }} />
 
-          {/* ── MOBILE UI (shown on small screens via CSS) ── */}
+          {/* ── MOBILE UI ── */}
           <div className="sanitize-mobile-upload">
-
             {error && (
-              <div style={{ background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#FF8080' }}>
-                {error}
-              </div>
+              <div style={{ background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#FF8080' }}>{error}</div>
             )}
-
-            {/* Upload card */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px' }}>
               <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '14px' }}>Upload PDF</div>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', border: '1px dashed var(--border-mid)', borderRadius: '10px', padding: '20px 16px', cursor: limitHit ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.02)', opacity: limitHit ? 0.45 : 1, textAlign: 'center', alignItems: 'center' }}>
@@ -401,8 +465,6 @@ export default function SanitizePage() {
                 {fileSize && <small style={{ fontSize: '12px', color: 'var(--text-faint)' }}>{fileSize}</small>}
               </label>
             </div>
-
-            {/* Stats */}
             {pagePreviews.length > 0 && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                 {[{ val: pageCount, k: 'Pages' }, { val: totalRedactions, k: 'Redactions' }, { val: `$${estimatedFees.toFixed(2)}`, k: 'Est. tally' }].map(s => (
@@ -413,17 +475,13 @@ export default function SanitizePage() {
                 ))}
               </div>
             )}
-
-            {/* Open redaction mode button */}
             {pagePreviews.length > 0 && !limitHit && (
               <button type="button" className="btn-secondary btn-full"
-                onClick={() => setMobileFullscreen(true)}
+                onClick={() => { setScrollLocked(false); setMobileFullscreen(true); }}
                 style={{ fontSize: '14px', padding: '14px' }}>
                 ✏️ Open redaction view
               </button>
             )}
-
-            {/* Progress */}
             {busy && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px' }}>
                 <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '8px' }}>
@@ -432,22 +490,17 @@ export default function SanitizePage() {
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{progressLabel}</p>
               </div>
             )}
-
-            {/* Generate button */}
             <button type="button" className="btn-primary btn-full"
               disabled={!canGenerate}
               onClick={handleGenerate}
               style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', padding: '14px', fontSize: '15px' }}>
               {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : canGenerate ? 'Generate clean PDF' : 'Upload a PDF to begin'}
             </button>
-
           </div>
 
-          {/* ── DESKTOP TWO-COL (hidden on mobile via CSS) ── */}
+          {/* ── DESKTOP TWO-COL ── */}
           <div className="sanitize-desktop-layout">
-
             <aside style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Upload</div>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: '1px dashed var(--border-mid)', borderRadius: '8px', padding: '14px 12px', cursor: limitHit ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.02)', opacity: limitHit ? 0.45 : 1 }}>
@@ -458,7 +511,6 @@ export default function SanitizePage() {
                   <small style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{fileSize || 'PDF only'}</small>
                 </label>
               </div>
-
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Live totals</div>
                 {[{ val: pageCount, key: 'Pages' }, { val: totalRedactions, key: 'Redactions' }, { val: `$${estimatedFees.toFixed(2)}`, key: 'Witness tally' }].map((s, i, arr) => (
@@ -468,7 +520,6 @@ export default function SanitizePage() {
                   </div>
                 ))}
               </div>
-
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Progress</div>
                 <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '10px' }}>
@@ -476,29 +527,23 @@ export default function SanitizePage() {
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{progressLabel}</p>
                 {error && (
-                  <div style={{ marginTop: '10px', background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '7px', padding: '10px 12px', fontSize: '12px', color: '#FF8080', lineHeight: '1.55' }}>
-                    {error}
-                  </div>
+                  <div style={{ marginTop: '10px', background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '7px', padding: '10px 12px', fontSize: '12px', color: '#FF8080', lineHeight: '1.55' }}>{error}</div>
                 )}
               </div>
-
               <button type="button" className="btn-primary btn-full"
                 disabled={!canGenerate} onClick={handleGenerate}
                 style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed' }}>
                 {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : 'Generate clean PDF'}
               </button>
-
             </aside>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {pagePreviews.length === 0 && (
                 <div style={{ background: 'var(--bg-card)', border: '1px dashed var(--border-mid)', borderRadius: '12px', padding: '56px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: '14px', textAlign: 'center', minHeight: '280px' }}>
                   {limitHit ? 'Daily limit reached. Upgrade to continue.' : 'Upload a PDF to render preview pages and draw blackout boxes.'}
                 </div>
               )}
-              {renderPages()}
+              {renderPages(false)}
             </div>
-
           </div>
 
         </div>

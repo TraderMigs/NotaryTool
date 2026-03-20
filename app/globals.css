@@ -209,7 +209,7 @@ p { color: var(--text-secondary); line-height: 1.72; }
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -629,4 +629,77 @@ p { color: var(--text-secondary); line-height: 1.72; }
 @media (max-width: 480px) {
   :root { --pad-x: 18px; }
   .hero-headline { font-size: 28px; }
+}
+
+/* ══════════════════════════════════════
+   FAQ SECTION
+   ══════════════════════════════════════ */
+
+.faq-section {
+  padding: 72px 0;
+  border-top: 1px solid var(--border);
+}
+
+.faq-header {
+  margin-bottom: 48px;
+}
+
+.faq-headline {
+  font-size: clamp(24px, 2.8vw, 36px);
+  max-width: 400px;
+  margin-top: 14px;
+  line-height: 1.1;
+}
+
+.faq-list {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  transition: color 0.15s;
+}
+
+.faq-question:hover { color: var(--cyan); }
+
+.faq-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.faq-answer {
+  padding: 0 0 20px;
+}
+
+.faq-answer p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.75;
+  margin: 0;
+  max-width: 640px;
 }
