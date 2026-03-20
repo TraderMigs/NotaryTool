@@ -61,7 +61,7 @@ export default function SanitizePage() {
   const [pageCount, setPageCount] = useState(0);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [pageRectsMap, setPageRectsMap] = useState<PageRectsMap>({});
-  const [rectsHistory, setRectsHistory] = useState<PageRectsMap[]>([]); // undo stack
+  const rectsHistoryRef = useRef<PageRectsMap[]>([]); // undo stack - ref avoids stale closure
   const [pointerDraft, setPointerDraft] = useState<PointerDraft>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -140,6 +140,7 @@ export default function SanitizePage() {
     setPagePreviews([]); setPageRectsMap({}); setPointerDraft(null);
     setProgress(0); setProgressLabel("Waiting"); setError("");
     setMobileFullscreen(false); setScrollLocked(false);
+    rectsHistoryRef.current = [];
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -174,7 +175,10 @@ export default function SanitizePage() {
     drawingRef.current = null;
     setPointerDraft(null);
     if (!rect) return;
-    setPageRectsMap(c => ({ ...c, [pn]: [...(c[pn] ?? []), rect] }));
+    setPageRectsMap(c => {
+      rectsHistoryRef.current = [...rectsHistoryRef.current, c];
+      return { ...c, [pn]: [...(c[pn] ?? []), rect] };
+    });
   }
 
   // ── Touch handlers (mobile finger) ───────────────────────
@@ -205,27 +209,26 @@ export default function SanitizePage() {
     setPointerDraft(null);
     if (!rect) return;
     setPageRectsMap(c => {
-      setRectsHistory(h => [...h, c]);
+      rectsHistoryRef.current = [...rectsHistoryRef.current, c];
       return { ...c, [pn]: [...(c[pn] ?? []), rect] };
     });
   }, []);
 
   function clearPage(pn: number) {
-    setRectsHistory(h => [...h, pageRectsMap]);
+    rectsHistoryRef.current = [...rectsHistoryRef.current, pageRectsMap];
     setPageRectsMap(c => { const n = { ...c }; delete n[pn]; return n; });
   }
 
   function undoLast() {
-    setRectsHistory(h => {
-      if (h.length === 0) return h;
-      const prev = h[h.length - 1];
-      setPageRectsMap(prev);
-      return h.slice(0, -1);
-    });
+    const h = rectsHistoryRef.current;
+    if (h.length === 0) return;
+    const prev = h[h.length - 1];
+    rectsHistoryRef.current = h.slice(0, -1);
+    setPageRectsMap(prev);
   }
 
   function removeRect(pn: number, idx: number) {
-    setRectsHistory(h => [...h, pageRectsMap]);
+    rectsHistoryRef.current = [...rectsHistoryRef.current, pageRectsMap];
     setPageRectsMap(c => {
       const updated = [...(c[pn] ?? [])];
       updated.splice(idx, 1);
@@ -319,7 +322,8 @@ export default function SanitizePage() {
               <div
                 key={`${page.pageNumber}-${idx}`}
                 title="Tap or click to remove this box"
-                onClick={(e) => { e.stopPropagation(); removeRect(page.pageNumber, idx); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); removeRect(page.pageNumber, idx); }}
+                onPointerDown={(e) => { e.stopPropagation(); }}
                 onMouseEnter={(e) => { const x = e.currentTarget.querySelector('.brx') as HTMLElement; if (x) x.style.opacity = '1'; }}
                 onMouseLeave={(e) => { const x = e.currentTarget.querySelector('.brx') as HTMLElement; if (x) x.style.opacity = '0'; }}
                 style={{
@@ -431,8 +435,8 @@ export default function SanitizePage() {
             <button
               type="button"
               onClick={undoLast}
-              disabled={rectsHistory.length === 0 || busy}
-              style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600, padding: '9px 14px', borderRadius: '6px', cursor: rectsHistory.length > 0 ? 'pointer' : 'not-allowed', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', opacity: rectsHistory.length > 0 ? 1 : 0.35, flexShrink: 0, transition: 'all 0.15s' }}>
+              disabled={rectsHistoryRef.current.length === 0 || busy}
+              style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600, padding: '9px 14px', borderRadius: '6px', cursor: rectsHistoryRef.current.length > 0 ? 'pointer' : 'not-allowed', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', opacity: rectsHistoryRef.current.length > 0 ? 1 : 0.35, flexShrink: 0, transition: 'all 0.15s' }}>
               ↩ Undo
             </button>
             <button type="button" className="btn-primary"
