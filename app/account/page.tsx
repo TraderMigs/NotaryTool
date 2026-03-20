@@ -178,7 +178,7 @@ function AccountInner() {
               <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 500 }}>Manage billing</div>
               <div style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '3px' }}>Cancel or update your subscription via Stripe.</div>
             </div>
-            <a href="https://billing.stripe.com/p/login/specterfy" target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ fontSize: '13px', padding: '9px 16px' }}>
+            <a href="https://billing.stripe.com/p/login/aFafZjeAjbwVgnN9wCafS00" target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ fontSize: '13px', padding: '9px 16px' }}>
               Billing portal →
             </a>
           </div>
