@@ -27,8 +27,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
     }
 
-    // Owner: always allow, no counting
+    // Parse page_count from body (default 1 if not provided)
+    let pageCount = 1
+    try {
+      const body = await request.json()
+      if (body?.page_count && typeof body.page_count === 'number' && body.page_count > 0) {
+        pageCount = Math.min(body.page_count, 500) // cap at 500 pages
+      }
+    } catch { /* no body is fine */ }
+
+    // Always log to sanitize_log (even for owner/paid — for analytics)
+    const logEntry = async () => {
+      try {
+        await supabase.from('sanitize_log').insert({
+          user_id: user.id,
+          page_count: pageCount,
+          value_cents: pageCount * 500, // $5 per page
+        })
+      } catch { /* non-blocking */ }
+    }
+
+    // Owner: always allow, no daily counting
     if (isOwnerEmail(user.email)) {
+      await logEntry()
       return NextResponse.json({ allowed: true, unlimited: true })
     }
 
@@ -36,9 +57,10 @@ export async function POST(request: NextRequest) {
     const planRow = await getUserPlan(user.id)
     const paid = isPaidPlan(planRow?.plan ?? null, planRow?.status ?? null)
 
-    // Paid: always allow, no counting
+    // Paid: always allow
     if (paid) {
       await incrementTodayCount(user.id)
+      await logEntry()
       return NextResponse.json({ allowed: true, unlimited: true })
     }
 
@@ -55,6 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Under limit: increment and allow
     await incrementTodayCount(user.id)
+    await logEntry()
     return NextResponse.json({
       allowed: true,
       count: todayCount + 1,
