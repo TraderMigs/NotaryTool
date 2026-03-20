@@ -2,16 +2,55 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { readDashboardStats, DashboardStats, getDefaultStats } from '@/lib/runtimeStore'
+import { supabase } from '@/lib/supabase'
 import PublicHeader from '@/components/PublicHeader'
 import PublicFooter from '@/components/PublicFooter'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats>(getDefaultStats())
+  const [loading, setLoading] = useState(true)
+  const [isPaid, setIsPaid] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
+  const [todayCount, setTodayCount] = useState(0)
 
   useEffect(() => {
-    setStats(readDashboardStats())
-  }, [])
+    if (!supabase) { router.push('/sign-in'); return }
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) { router.push('/sign-in'); return }
+      const user = data.session.user
+      const ownerCheck = user.email === 'infiniappsofficial@gmail.com'
+      setIsOwner(ownerCheck)
+
+      const { data: planRow } = await supabase!.from('user_plans').select('plan,status').eq('user_id', user.id).single()
+      const paid = ownerCheck || ((planRow?.plan === 'monthly' || planRow?.plan === 'yearly') && planRow?.status === 'active')
+      setIsPaid(paid)
+
+      if (!ownerCheck && !paid) {
+        const today = new Date().toISOString().split('T')[0]
+        const { data: countRow } = await supabase!.from('daily_sanitize_counts').select('count').eq('user_id', user.id).eq('date', today).single()
+        setTodayCount(countRow?.count ?? 0)
+      }
+
+      setStats(readDashboardStats())
+      setLoading(false)
+    })
+  }, [router])
+
+  if (loading) return (
+    <>
+      <PublicHeader />
+      <main className="page-wrap">
+        <div className="container" style={{ paddingTop: '80px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>
+        </div>
+      </main>
+    </>
+  )
+
+  const remaining = Math.max(0, 5 - todayCount)
 
   return (
     <>
@@ -19,12 +58,9 @@ export default function DashboardPage() {
       <main className="page-wrap">
         <div className="container" style={{ paddingTop: '40px', paddingBottom: '100px' }}>
 
-          {/* Back nav */}
           <div className="back-nav">
             <Link href="/" className="btn-ghost">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 5l-7 7 7 7" />
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
               Home
             </Link>
             <span className="back-nav-divider" />
@@ -33,7 +69,6 @@ export default function DashboardPage() {
             <Link href="/review" className="btn-ghost">Review</Link>
           </div>
 
-          {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '40px', gap: '16px', flexWrap: 'wrap' }}>
             <div>
               <span className="label" style={{ marginBottom: '10px' }}>Dashboard</span>
@@ -47,9 +82,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Plan status strip */}
+          {(isPaid || isOwner) ? (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 12px', marginBottom: '24px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--cyan)' }}>
+                {isOwner ? 'Owner — Unlimited access' : 'Paid plan — Unlimited sanitization'}
+              </span>
+            </div>
+          ) : (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 16px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                Free plan: <strong style={{ color: remaining <= 1 ? 'rgba(255,200,80,0.9)' : 'var(--text-secondary)' }}>{remaining}</strong> of 5 sanitizes remaining today
+              </span>
+              <Link href="/account" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500 }}>Upgrade for unlimited →</Link>
+            </div>
+          )}
+
           <div className="rule" style={{ marginBottom: '32px' }} />
 
-          {/* Stats row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px' }}>
             {[
               { label: 'Documents', value: stats.totalDocuments, desc: 'Completed clean downloads' },
@@ -64,7 +114,6 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Witness tally */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '26px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-muted)', marginBottom: '8px' }}>Witness tally</div>
@@ -77,7 +126,6 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Status block */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px 26px' }}>
             <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--text-muted)', marginBottom: '14px' }}>Status</div>
             <h2 style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: 'clamp(20px, 2.5vw, 26px)', fontWeight: 700, letterSpacing: '-0.018em', color: 'var(--text-primary)', marginBottom: '8px' }}>
