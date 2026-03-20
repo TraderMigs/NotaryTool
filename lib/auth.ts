@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 export type AuthError = { message: string }
 
 // ── Sign up ──────────────────────────────────────────────────────
-export async function signUp(email: string, password: string) {
+export async function signUp(email: string, password: string, businessName?: string) {
   if (!supabase) return { error: { message: 'Supabase not configured.' } }
 
   const { data, error } = await supabase.auth.signUp({
@@ -13,6 +13,9 @@ export async function signUp(email: string, password: string) {
     password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+      data: {
+        business_name: businessName?.trim() || '',
+      },
     },
   })
 
@@ -54,6 +57,16 @@ export async function updatePassword(newPassword: string) {
   if (!supabase) return { error: { message: 'Supabase not configured.' } }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
+  return { error }
+}
+
+// ── Update business name ─────────────────────────────────────────
+export async function updateBusinessName(businessName: string) {
+  if (!supabase) return { error: { message: 'Supabase not configured.' } }
+
+  const { error } = await supabase.auth.updateUser({
+    data: { business_name: businessName.trim() },
+  })
   return { error }
 }
 
