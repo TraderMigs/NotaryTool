@@ -244,11 +244,24 @@ export default function SanitizePage() {
       if (!token) { setSessionExpired(true); return; }
       const res = await fetch('/api/usage/increment', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_count: pageCount }),
       });
       const usageData = await res.json();
       if (!usageData.allowed) { setLimitHit(true); setTodayCount(usageData.count ?? 5); setMobileFullscreen(false); return; }
       setTodayCount(usageData.count ?? 0);
+    }
+    // Log pages for owner/paid (no limit enforcement, but track for analytics)
+    if (isOwner || isPaid) {
+      const ownerSession = await supabase!.auth.getSession();
+      const ownerToken = ownerSession.data.session?.access_token;
+      if (ownerToken) {
+        fetch('/api/usage/increment', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page_count: pageCount }),
+        }).catch(() => {});
+      }
     }
     setMobileFullscreen(false);
     setBusy(true); setError(""); setProgress(52); setProgressLabel("Generating clean PDF");
