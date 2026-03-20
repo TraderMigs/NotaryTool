@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
-// Admin data endpoint — service role only
-// Reads user_plans directly (view joins auth.users which can have RLS issues)
-
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -20,44 +17,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
     }
 
-    // Query user_plans (service role bypasses RLS)
+    // Get all plan rows
     const { data: plans, error: plansError } = await supabase
       .from('user_plans')
       .select('user_id, plan, status, stripe_customer_id, stripe_subscription_id, updated_at')
       .order('updated_at', { ascending: false })
 
     if (plansError) {
-      console.error('user_plans error:', plansError)
       return NextResponse.json({ error: 'Failed to load plans.' }, { status: 500 })
     }
 
-    // Get sanitize counts per user
+    // Get emails from the public view (readable via PostgREST)
+    const { data: emailRows } = await supabase
+      .from('user_emails')
+      .select('id, email, created_at, last_sign_in_at')
+
+    const emailMap: Record<string, { email: string; created_at: string; last_sign_in_at: string | null }> = {}
+    for (const row of emailRows ?? []) {
+      if (row.id) emailMap[row.id] = {
+        email: row.email ?? '—',
+        created_at: row.created_at,
+        last_sign_in_at: row.last_sign_in_at ?? null,
+      }
+    }
+
+    // Get sanitize counts per user (sum across all days)
     const { data: counts } = await supabase
       .from('daily_sanitize_counts')
       .select('user_id, count')
 
-    // Aggregate sanitize counts per user
     const countMap: Record<string, number> = {}
     for (const row of counts ?? []) {
       countMap[row.user_id] = (countMap[row.user_id] ?? 0) + (row.count ?? 0)
     }
 
-    // Try to get emails from auth.users via the view (may fail — handled gracefully)
-    let emailMap: Record<string, string> = {}
-    const { data: viewData } = await supabase
-      .from('admin_user_summary')
-      .select('id, email')
-    if (viewData) {
-      for (const row of viewData) {
-        if (row.id && row.email) emailMap[row.id] = row.email
-      }
-    }
-
     const users = (plans ?? []).map((p: any) => ({
       id: p.user_id,
-      email: emailMap[p.user_id] ?? '—',
-      created_at: p.updated_at,
-      last_sign_in_at: null,
+      email: emailMap[p.user_id]?.email ?? '—',
+      created_at: emailMap[p.user_id]?.created_at ?? p.updated_at,
+      last_sign_in_at: emailMap[p.user_id]?.last_sign_in_at ?? null,
       plan: p.plan,
       status: p.status,
       stripe_customer_id: p.stripe_customer_id,
