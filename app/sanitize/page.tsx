@@ -42,6 +42,9 @@ export default function SanitizePage() {
   const [todayCount, setTodayCount] = useState(0);
   const [limitHit, setLimitHit] = useState(false);
 
+  // Mobile fullscreen state
+  const [mobileFullscreen, setMobileFullscreen] = useState(false);
+
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [fileSize, setFileSize] = useState("");
@@ -80,11 +83,8 @@ export default function SanitizePage() {
       setAuthChecked(true);
     });
 
-    // Session expiry listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        if (event === 'SIGNED_OUT') setSessionExpired(true);
-      }
+      if (event === 'SIGNED_OUT') setSessionExpired(true);
     });
     return () => subscription.unsubscribe();
   }, [router]);
@@ -109,7 +109,7 @@ export default function SanitizePage() {
         const vp = page.getViewport({ scale: 1.45 });
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas context unavailable.");
+        if (!ctx) throw new Error("Canvas unavailable.");
         canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height);
         await page.render({ canvasContext: ctx, viewport: vp }).promise;
         previews.push({ pageNumber: n, width: canvas.width, height: canvas.height, dataUrl: canvas.toDataURL("image/png") });
@@ -127,6 +127,7 @@ export default function SanitizePage() {
     setFile(null); setFileName(""); setFileSize(""); setPageCount(0);
     setPagePreviews([]); setPageRectsMap({}); setPointerDraft(null);
     setProgress(0); setProgressLabel("Waiting"); setError("");
+    setMobileFullscreen(false);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -175,11 +176,10 @@ export default function SanitizePage() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const usageData = await res.json();
-      if (!usageData.allowed) {
-        setLimitHit(true); setTodayCount(usageData.count ?? 5); return;
-      }
+      if (!usageData.allowed) { setLimitHit(true); setTodayCount(usageData.count ?? 5); setMobileFullscreen(false); return; }
       setTodayCount(usageData.count ?? 0);
     }
+    setMobileFullscreen(false);
     setBusy(true); setError(""); setProgress(52); setProgressLabel("Generating clean PDF");
     try {
       const result = await sanitizePdfWithRasterization({
@@ -208,6 +208,39 @@ export default function SanitizePage() {
   const remainingToday = Math.max(0, 5 - todayCount);
   const showUpsellNudge = !isPaid && !isOwner && !limitHit && todayCount >= 4 && authChecked;
 
+  // Shared page preview renderer (used in both desktop and mobile fullscreen)
+  function renderPages() {
+    return pagePreviews.map((page) => {
+      const rects = pageRectsMap[page.pageNumber] ?? [];
+      return (
+        <article key={page.pageNumber} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' as const }}>
+              Page {page.pageNumber}
+            </span>
+            <button type="button" onClick={() => clearPage(page.pageNumber)}
+              style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 10px', cursor: 'pointer' }}>
+              Clear
+            </button>
+          </div>
+          <div ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
+            style={{ position: 'relative', userSelect: 'none', cursor: 'crosshair', lineHeight: 0 }}
+            onPointerDown={(e) => handlePointerDown(page.pageNumber, e)}
+            onPointerMove={(e) => handlePointerMove(page.pageNumber, e)}
+            onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}>
+            <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: '100%', display: 'block', pointerEvents: 'none' }} draggable={false} />
+            {rects.map((rect, idx) => (
+              <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 0.88, ...getRectStyle(rect) }} />
+            ))}
+            {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
+              <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.22)', border: '1.5px solid var(--cyan)', ...getRectStyle(liveDraftRect) }} />
+            )}
+          </div>
+        </article>
+      );
+    });
+  }
+
   if (!authChecked) return (
     <>
       <PublicHeader />
@@ -227,14 +260,64 @@ export default function SanitizePage() {
       {sessionExpired && (
         <div className="session-expiry-banner">
           <p>Your session expired.</p>
-          <Link href="/sign-in" className="btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-            Sign in again
-          </Link>
+          <Link href="/sign-in" className="btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>Sign in again</Link>
         </div>
       )}
 
+      {/* ══ MOBILE FULLSCREEN REDACTION OVERLAY ══ */}
+      {mobileFullscreen && (
+        <div className="sanitize-fullscreen-overlay">
+          {/* Header bar */}
+          <div className="sanitize-fullscreen-header">
+            <button type="button"
+              onClick={() => setMobileFullscreen(false)}
+              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-muted)', padding: '7px 12px', fontSize: '13px', fontFamily: 'var(--dm-sans, sans-serif)', cursor: 'pointer', flexShrink: 0 }}>
+              ← Back
+            </button>
+            <span className="sanitize-fullscreen-title">{fileName}</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-faint)', flexShrink: 0 }}>
+              {totalRedactions} box{totalRedactions !== 1 ? 'es' : ''}
+            </span>
+          </div>
+
+          {/* Instruction strip */}
+          <div style={{ padding: '8px 16px', background: 'rgba(0,200,240,0.07)', borderBottom: '1px solid var(--border-cyan)' }}>
+            <p style={{ fontSize: '12px', color: 'var(--cyan-dim)', margin: 0, textAlign: 'center' }}>
+              Draw boxes over sensitive areas. Tap and drag to redact.
+            </p>
+          </div>
+
+          {/* Scrollable pages */}
+          <div className="sanitize-fullscreen-scroll" style={{ padding: '12px' }}>
+            {pagePreviews.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--text-faint)', fontSize: '14px' }}>
+                Loading pages…
+              </div>
+            ) : renderPages()}
+          </div>
+
+          {/* Footer bar */}
+          <div className="sanitize-fullscreen-footer">
+            {/* Progress */}
+            <div style={{ flex: 1 }}>
+              <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '5px' }}>
+                <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{progressLabel}</span>
+            </div>
+            <button type="button" className="btn-primary"
+              disabled={!canGenerate}
+              onClick={handleGenerate}
+              style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', fontSize: '13px', padding: '10px 20px', flexShrink: 0 }}>
+              {busy ? 'Processing…' : 'Generate clean PDF'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ NORMAL PAGE ══ */}
       <main className="page-wrap">
-        <div className="container" style={{ paddingTop: "40px", paddingBottom: "80px" }}>
+        <div className="container" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
 
           <div className="back-nav">
             <Link href="/" className="btn-ghost">
@@ -250,16 +333,16 @@ export default function SanitizePage() {
           {/* Limit hit banner */}
           {limitHit && (
             <div className="upgrade-nudge">
-              <p><strong>Daily limit reached — 5/5 free sanitizes used today.</strong> Upgrade to unlimited for $9.97/mo or come back tomorrow.</p>
-              <Link href="/account" className="btn-primary" style={{ fontSize: '13px', padding: '9px 18px', flexShrink: 0 }}>Upgrade now</Link>
+              <p><strong>Daily limit reached — 5/5 free sanitizes used.</strong> Upgrade for unlimited or come back tomorrow.</p>
+              <Link href="/account?tab=billing" className="btn-primary" style={{ fontSize: '13px', padding: '9px 18px', flexShrink: 0 }}>Upgrade now</Link>
             </div>
           )}
 
           {/* 4/5 upsell nudge */}
           {showUpsellNudge && (
             <div className="upgrade-nudge">
-              <p>You've used <strong>{todayCount} of 5</strong> free sanitizes today — 1 remaining. Upgrade for unlimited.</p>
-              <Link href="/account" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>Upgrade →</Link>
+              <p>You've used <strong>{todayCount} of 5</strong> free sanitizes today — {remainingToday} remaining.</p>
+              <Link href="/account?tab=billing" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>Upgrade →</Link>
             </div>
           )}
 
@@ -269,7 +352,7 @@ export default function SanitizePage() {
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                 Free plan: <strong style={{ color: 'var(--text-secondary)' }}>{remainingToday}</strong> of 5 sanitizes remaining today
               </span>
-              <Link href="/account" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500 }}>Upgrade for unlimited →</Link>
+              <Link href="/account?tab=billing" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500 }}>Upgrade →</Link>
             </div>
           )}
 
@@ -293,10 +376,77 @@ export default function SanitizePage() {
 
           <div className="rule" style={{ marginBottom: '28px' }} />
 
-          {/* Two-column layout — collapses on mobile via CSS class */}
-          <div className="sanitize-layout" style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px', alignItems: 'start' }}>
+          {/* ── MOBILE UI (shown on small screens via CSS) ── */}
+          <div className="sanitize-mobile-upload">
 
-            <aside className="sanitize-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {error && (
+              <div style={{ background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '8px', padding: '12px 14px', fontSize: '13px', color: '#FF8080' }}>
+                {error}
+              </div>
+            )}
+
+            {/* Upload card */}
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px' }}>
+              <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '14px' }}>Upload PDF</div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', border: '1px dashed var(--border-mid)', borderRadius: '10px', padding: '20px 16px', cursor: limitHit ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.02)', opacity: limitHit ? 0.45 : 1, textAlign: 'center', alignItems: 'center' }}>
+                <input type="file" accept="application/pdf" onChange={handleFileChange} style={{ display: 'none' }} disabled={limitHit || busy} />
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-faint)', marginBottom: '8px' }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '14px', fontWeight: 600, color: fileName ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  {fileName || 'Tap to choose PDF'}
+                </span>
+                {fileSize && <small style={{ fontSize: '12px', color: 'var(--text-faint)' }}>{fileSize}</small>}
+              </label>
+            </div>
+
+            {/* Stats */}
+            {pagePreviews.length > 0 && (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                {[{ val: pageCount, k: 'Pages' }, { val: totalRedactions, k: 'Redactions' }, { val: `$${estimatedFees.toFixed(2)}`, k: 'Est. tally' }].map(s => (
+                  <div key={s.k} style={{ textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{s.val}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>{s.k}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Open redaction mode button */}
+            {pagePreviews.length > 0 && !limitHit && (
+              <button type="button" className="btn-secondary btn-full"
+                onClick={() => setMobileFullscreen(true)}
+                style={{ fontSize: '14px', padding: '14px' }}>
+                ✏️ Open redaction view
+              </button>
+            )}
+
+            {/* Progress */}
+            {busy && (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px' }}>
+                <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '8px' }}>
+                  <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{progressLabel}</p>
+              </div>
+            )}
+
+            {/* Generate button */}
+            <button type="button" className="btn-primary btn-full"
+              disabled={!canGenerate}
+              onClick={handleGenerate}
+              style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', padding: '14px', fontSize: '15px' }}>
+              {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : canGenerate ? 'Generate clean PDF' : 'Upload a PDF to begin'}
+            </button>
+
+          </div>
+
+          {/* ── DESKTOP TWO-COL (hidden on mobile via CSS) ── */}
+          <div className="sanitize-desktop-layout">
+
+            <aside style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Upload</div>
@@ -332,7 +482,7 @@ export default function SanitizePage() {
                 )}
               </div>
 
-              <button type="button" className="btn-primary btn-full sanitize-sidebar-generate"
+              <button type="button" className="btn-primary btn-full"
                 disabled={!canGenerate} onClick={handleGenerate}
                 style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed' }}>
                 {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : 'Generate clean PDF'}
@@ -346,35 +496,11 @@ export default function SanitizePage() {
                   {limitHit ? 'Daily limit reached. Upgrade to continue.' : 'Upload a PDF to render preview pages and draw blackout boxes.'}
                 </div>
               )}
-              {pagePreviews.map((page) => {
-                const rects = pageRectsMap[page.pageNumber] ?? [];
-                return (
-                  <article key={page.pageNumber} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' as const }}>Page {page.pageNumber}</span>
-                      <button type="button" onClick={() => clearPage(page.pageNumber)}
-                        style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 10px', cursor: 'pointer' }}>
-                        Clear page
-                      </button>
-                    </div>
-                    <div ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
-                      style={{ position: 'relative', userSelect: 'none', cursor: 'crosshair', lineHeight: 0 }}
-                      onPointerDown={(e) => handlePointerDown(page.pageNumber, e)}
-                      onPointerMove={(e) => handlePointerMove(page.pageNumber, e)}
-                      onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}>
-                      <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: '100%', display: 'block', pointerEvents: 'none' }} draggable={false} />
-                      {rects.map((rect, idx) => (
-                        <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 0.88, ...getRectStyle(rect) }} />
-                      ))}
-                      {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
-                        <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.22)', border: '1.5px solid var(--cyan)', ...getRectStyle(liveDraftRect) }} />
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {renderPages()}
             </div>
+
           </div>
+
         </div>
       </main>
       <PublicFooter />
