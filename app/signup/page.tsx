@@ -27,6 +27,7 @@ function EyeOffIcon() {
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [businessName, setBusinessName] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -41,7 +42,7 @@ export default function SignupPage() {
     setError('')
     setLoading(true)
 
-    const { error: authError } = await signUp(email, password)
+    const { error: authError } = await signUp(email, password, businessName)
 
     if (authError) {
       setError(authError.message ?? 'Sign up failed. Please try again.')
@@ -134,6 +135,21 @@ export default function SignupPage() {
             )}
 
             <form onSubmit={handleSubmit} className="auth-fields">
+
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="signup-business">Business name <span style={{ fontSize: '11px', color: 'var(--text-faint)', fontWeight: 400 }}>(optional — shown on fee receipts)</span></label>
+                <input
+                  id="signup-business"
+                  type="text"
+                  className="field-input"
+                  placeholder="e.g. Smith Notary Services"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                  autoComplete="organization"
+                  disabled={loading}
+                />
+              </div>
+
               <div className="field-wrap">
                 <label className="field-label" htmlFor="signup-email">Email</label>
                 <input
