@@ -1,0 +1,117 @@
+
+╔══════════════════════════════════════════════════════════════════════╗
+║         SPECTERFY — PHASES D-G DEPLOYMENT INSTRUCTIONS             ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — ADD ONE VERCEL ENV VAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Go to: https://vercel.com/migs-projects-b6fae86b/notary-tool/settings/environment-variables
+
+Add:
+  Name:   CRON_SECRET
+  Value:  any random string you choose, e.g. specterfy-cron-2026
+  Env:    All Environments
+
+This secures the renewal email endpoint so only Vercel Cron can call it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — GITHUB COMMITS (14 files)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEW FILES (create at these exact paths):
+
+  app/sitemap.ts
+  → https://github.com/TraderMigs/NotaryTool/new/main/app
+    name: sitemap.ts
+
+  app/robots.ts
+  → https://github.com/TraderMigs/NotaryTool/new/main/app
+    name: robots.ts
+
+  app/not-found.tsx
+  → https://github.com/TraderMigs/NotaryTool/new/main/app
+    name: not-found.tsx
+
+  app/error.tsx
+  → https://github.com/TraderMigs/NotaryTool/new/main/app
+    name: error.tsx
+
+  app/opengraph-image.tsx
+  → https://github.com/TraderMigs/NotaryTool/new/main/app
+    name: opengraph-image.tsx
+
+  app/api/email/renewal/route.ts
+  → https://github.com/TraderMigs/NotaryTool/new/main/app/api/email/renewal
+    name: route.ts
+
+  vercel.json
+  → https://github.com/TraderMigs/NotaryTool/new/main
+    name: vercel.json
+
+REPLACE EXISTING FILES:
+
+  app/layout.tsx
+  → https://github.com/TraderMigs/NotaryTool/edit/main/app/layout.tsx
+
+  app/sanitize/page.tsx
+  → https://github.com/TraderMigs/NotaryTool/edit/main/app/sanitize/page.tsx
+
+  next.config.mjs
+  → https://github.com/TraderMigs/NotaryTool/edit/main/next.config.mjs
+
+  package.json
+  → https://github.com/TraderMigs/NotaryTool/edit/main/package.json
+
+APPEND TO EXISTING (do not replace — add to bottom):
+
+  app/globals.css
+  → https://github.com/TraderMigs/NotaryTool/edit/main/app/globals.css
+  Scroll to the very bottom and paste the contents of GLOBALS_CSS_APPEND.css
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — VERCEL ANALYTICS ACTIVATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+After deploying, go to:
+https://vercel.com/migs-projects-b6fae86b/notary-tool/analytics
+
+Click "Enable Analytics" if prompted.
+The @vercel/analytics package handles everything else — no additional setup.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — VERIFY AFTER DEPLOY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  □ https://specterfy.com/sitemap.xml  — should show XML with your routes
+  □ https://specterfy.com/robots.txt   — should show plain text rules
+  □ https://specterfy.com/og.png is handled via app/opengraph-image.tsx automatically
+  □ Go to a fake URL like specterfy.com/xyz — should show your 404 page
+  □ Vercel dashboard → Analytics tab — should show data after first visit
+  □ Cron jobs visible at: https://vercel.com/migs-projects-b6fae86b/notary-tool/settings/crons
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT EACH FILE DOES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+app/layout.tsx          — Vercel Analytics injected, full SEO meta, schema.org markup
+app/sitemap.ts          — Auto-generates /sitemap.xml for Google indexing
+app/robots.ts           — Auto-generates /robots.txt, blocks private routes from crawlers
+app/not-found.tsx       — Custom 404 page matching your design
+app/error.tsx           — Custom 500 page matching your design
+app/opengraph-image.tsx — Auto-generates OG social share image at /opengraph-image
+app/sanitize/page.tsx   — Mobile layout collapse, session expiry banner, 4/5 upsell nudge
+next.config.mjs         — Adds correct content-type headers for sitemap/robots
+package.json            — Adds @vercel/analytics
+vercel.json             — Defines daily cron job for renewal emails
+GLOBALS_CSS_APPEND.css  — Append-only: mobile grid classes, session banner, nudge styles
+app/api/email/renewal/  — Daily renewal reminder emails to yearly subscribers (~30 days out)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMAINING AFTER THIS DEPLOY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Only two items intentionally left out:
+
+1. Email drip (Day 1/3/7) — needs Resend Audiences feature enabled + contact
+   management. Set up in Resend dashboard first, then ask for the code.
+
+2. Referral system — needs a new Supabase table (referral_codes, referral_credits).
+   Ask when ready for that build.

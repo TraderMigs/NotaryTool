@@ -18,12 +18,11 @@ type PagePreview = { pageNumber: number; width: number; height: number; dataUrl:
 type PointerDraft = { pageNumber: number; originX: number; originY: number; currentX: number; currentY: number } | null;
 
 function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
-
 function normalizeRect(x1: number, y1: number, x2: number, y2: number): NormalizedRect | null {
   const x = Math.min(x1, x2), y = Math.min(y1, y2);
-  const width = Math.abs(x2 - x1), height = Math.abs(y2 - y1);
-  if (width < 0.008 || height < 0.008) return null;
-  return { x: clamp01(x), y: clamp01(y), width: clamp01(width), height: clamp01(height) };
+  const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+  if (w < 0.008 || h < 0.008) return null;
+  return { x: clamp01(x), y: clamp01(y), width: clamp01(w), height: clamp01(h) };
 }
 function getRectStyle(r: NormalizedRect) {
   return { left: `${r.x*100}%`, top: `${r.y*100}%`, width: `${r.width*100}%`, height: `${r.height*100}%` };
@@ -36,8 +35,8 @@ function buildDraftRect(d: PointerDraft): NormalizedRect | null {
 export default function SanitizePage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
@@ -60,21 +59,17 @@ export default function SanitizePage() {
   const estimatedFees = useMemo(() => pageCount * 5, [pageCount]);
   const liveDraftRect = useMemo(() => buildDraftRect(pointerDraft), [pointerDraft]);
 
-  // Auth gate
   useEffect(() => {
     if (!supabase) { router.push('/sign-in'); return; }
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { router.push('/sign-in'); return; }
       const user = data.session.user;
       setUserId(user.id);
-      setUserEmail(user.email ?? null);
       const ownerCheck = user.email === 'infiniappsofficial@gmail.com';
       setIsOwner(ownerCheck);
-      // Check plan
       const { data: planRow } = await supabase!.from('user_plans').select('plan,status').eq('user_id', user.id).single();
       const paid = ownerCheck || ((planRow?.plan === 'monthly' || planRow?.plan === 'yearly') && planRow?.status === 'active');
       setIsPaid(paid);
-      // Check today's usage
       if (!ownerCheck && !paid) {
         const today = new Date().toISOString().split('T')[0];
         const { data: countRow } = await supabase!.from('daily_sanitize_counts').select('count').eq('user_id', user.id).eq('date', today).single();
@@ -84,6 +79,14 @@ export default function SanitizePage() {
       }
       setAuthChecked(true);
     });
+
+    // Session expiry listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_OUT') setSessionExpired(true);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [router]);
 
   async function getPdfJs(): Promise<PdfJsModule> {
@@ -163,24 +166,20 @@ export default function SanitizePage() {
 
   async function handleGenerate() {
     if (!file || pagePreviews.length === 0 || !userId) return;
-
-    // Check + increment usage via API
     if (!isOwner && !isPaid) {
       const session = await supabase!.auth.getSession();
       const token = session.data.session?.access_token;
+      if (!token) { setSessionExpired(true); return; }
       const res = await fetch('/api/usage/increment', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const usageData = await res.json();
       if (!usageData.allowed) {
-        setLimitHit(true);
-        setTodayCount(usageData.count ?? 5);
-        return;
+        setLimitHit(true); setTodayCount(usageData.count ?? 5); return;
       }
       setTodayCount(usageData.count ?? 0);
     }
-
     setBusy(true); setError(""); setProgress(52); setProgressLabel("Generating clean PDF");
     try {
       const result = await sanitizePdfWithRasterization({
@@ -207,27 +206,36 @@ export default function SanitizePage() {
 
   const canGenerate = !!file && !busy && pagePreviews.length > 0 && !limitHit;
   const remainingToday = Math.max(0, 5 - todayCount);
+  const showUpsellNudge = !isPaid && !isOwner && !limitHit && todayCount >= 4 && authChecked;
 
-  if (!authChecked) {
-    return (
-      <>
-        <PublicHeader />
-        <main className="page-wrap">
-          <div className="container" style={{ paddingTop: '80px' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>
-          </div>
-        </main>
-      </>
-    );
-  }
+  if (!authChecked) return (
+    <>
+      <PublicHeader />
+      <main className="page-wrap">
+        <div className="container" style={{ paddingTop: '80px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading…</p>
+        </div>
+      </main>
+    </>
+  );
 
   return (
     <>
       <PublicHeader />
+
+      {/* Session expiry banner */}
+      {sessionExpired && (
+        <div className="session-expiry-banner">
+          <p>Your session expired.</p>
+          <Link href="/sign-in" className="btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+            Sign in again
+          </Link>
+        </div>
+      )}
+
       <main className="page-wrap">
         <div className="container" style={{ paddingTop: "40px", paddingBottom: "80px" }}>
 
-          {/* Back nav */}
           <div className="back-nav">
             <Link href="/" className="btn-ghost">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
@@ -241,32 +249,31 @@ export default function SanitizePage() {
 
           {/* Limit hit banner */}
           {limitHit && (
-            <div style={{ background: 'rgba(255,160,0,0.07)', border: '1px solid rgba(255,160,0,0.2)', borderRadius: '10px', padding: '16px 20px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '14px', color: 'rgba(255,200,80,0.9)', marginBottom: '4px' }}>
-                  Daily limit reached — 5/5 free sanitizes used today
-                </p>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                  Upgrade to unlimited for $9.97/mo or come back tomorrow.
-                </p>
-              </div>
-              <Link href="/account" className="btn-primary" style={{ fontSize: '13px', padding: '9px 18px', flexShrink: 0 }}>
-                Upgrade now
-              </Link>
+            <div className="upgrade-nudge">
+              <p><strong>Daily limit reached — 5/5 free sanitizes used today.</strong> Upgrade to unlimited for $9.97/mo or come back tomorrow.</p>
+              <Link href="/account" className="btn-primary" style={{ fontSize: '13px', padding: '9px 18px', flexShrink: 0 }}>Upgrade now</Link>
             </div>
           )}
 
-          {/* Usage strip for free users */}
-          {!isPaid && !isOwner && !limitHit && authChecked && (
+          {/* 4/5 upsell nudge */}
+          {showUpsellNudge && (
+            <div className="upgrade-nudge">
+              <p>You've used <strong>{todayCount} of 5</strong> free sanitizes today — 1 remaining. Upgrade for unlimited.</p>
+              <Link href="/account" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>Upgrade →</Link>
+            </div>
+          )}
+
+          {/* Usage strip */}
+          {!isPaid && !isOwner && !limitHit && !showUpsellNudge && authChecked && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Free plan: <strong style={{ color: todayCount >= 4 ? 'rgba(255,200,80,0.9)' : 'var(--text-secondary)' }}>{remainingToday}</strong> of 5 sanitizes remaining today
+                Free plan: <strong style={{ color: 'var(--text-secondary)' }}>{remainingToday}</strong> of 5 sanitizes remaining today
               </span>
               <Link href="/account" style={{ fontSize: '12px', color: 'var(--cyan-dim)', textDecoration: 'none', fontWeight: 500 }}>Upgrade for unlimited →</Link>
             </div>
           )}
 
-          {/* Unlimited badge for paid/owner */}
+          {/* Unlimited badge */}
           {(isPaid || isOwner) && authChecked && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--cyan-glow)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 12px', marginBottom: '20px' }}>
               <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--cyan)' }}>
@@ -275,90 +282,92 @@ export default function SanitizePage() {
             </div>
           )}
 
-          {/* Top bar */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "28px", gap: "16px", flexWrap: "wrap" }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px', gap: '16px', flexWrap: 'wrap' }}>
             <div>
-              <span className="label" style={{ marginBottom: "8px" }}>Sanitize</span>
-              <h1 style={{ fontFamily: "var(--dm-sans, sans-serif)", fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, letterSpacing: "-0.022em", color: "var(--text-primary)", lineHeight: 1.06 }}>
+              <span className="label" style={{ marginBottom: '8px' }}>Sanitize</span>
+              <h1 style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 700, letterSpacing: '-0.022em', color: 'var(--text-primary)', lineHeight: 1.06 }}>
                 Prep a cleaner PDF
               </h1>
             </div>
           </div>
 
-          <div className="rule" style={{ marginBottom: "28px" }} />
+          <div className="rule" style={{ marginBottom: '28px' }} />
 
-          {/* Two-column layout */}
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "20px", alignItems: "start" }}>
+          {/* Two-column layout — collapses on mobile via CSS class */}
+          <div className="sanitize-layout" style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px', alignItems: 'start' }}>
 
-            <aside style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
-                <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Upload</div>
-                <label style={{ display: "flex", flexDirection: "column", gap: "5px", border: "1px dashed var(--border-mid)", borderRadius: "8px", padding: "14px 12px", cursor: limitHit ? "not-allowed" : "pointer", background: "rgba(255,255,255,0.02)", opacity: limitHit ? 0.45 : 1 }}>
-                  <input type="file" accept="application/pdf" onChange={handleFileChange} style={{ display: "none" }} disabled={limitHit} />
-                  <span style={{ fontFamily: "var(--dm-sans, sans-serif)", fontSize: "13px", fontWeight: 500, color: fileName ? "var(--text-primary)" : "var(--text-secondary)", wordBreak: "break-word" }}>
-                    {fileName || "Choose PDF"}
+            <aside className="sanitize-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
+                <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Upload</div>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '5px', border: '1px dashed var(--border-mid)', borderRadius: '8px', padding: '14px 12px', cursor: limitHit ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.02)', opacity: limitHit ? 0.45 : 1 }}>
+                  <input type="file" accept="application/pdf" onChange={handleFileChange} style={{ display: 'none' }} disabled={limitHit} />
+                  <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '13px', fontWeight: 500, color: fileName ? 'var(--text-primary)' : 'var(--text-secondary)', wordBreak: 'break-word' }}>
+                    {fileName || 'Choose PDF'}
                   </span>
-                  <small style={{ fontSize: "11px", color: "var(--text-faint)" }}>{fileSize || "PDF only"}</small>
+                  <small style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{fileSize || 'PDF only'}</small>
                 </label>
               </div>
 
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
-                <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Live totals</div>
-                {[{ val: pageCount, key: "Pages" }, { val: totalRedactions, key: "Redactions" }, { val: `$${estimatedFees.toFixed(2)}`, key: "Witness tally" }].map((s, i, arr) => (
-                  <div key={s.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <span style={{ fontFamily: "var(--dm-sans, sans-serif)", fontSize: "17px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.015em" }}>{s.val}</span>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{s.key}</span>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
+                <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Live totals</div>
+                {[{ val: pageCount, key: 'Pages' }, { val: totalRedactions, key: 'Redactions' }, { val: `$${estimatedFees.toFixed(2)}`, key: 'Witness tally' }].map((s, i, arr) => (
+                  <div key={s.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.015em' }}>{s.val}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{s.key}</span>
                   </div>
                 ))}
               </div>
 
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "18px 16px" }}>
-                <div style={{ fontSize: "9.5px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: "var(--cyan)", marginBottom: "12px" }}>Progress</div>
-                <div style={{ height: "3px", background: "var(--border)", borderRadius: "100px", overflow: "hidden", marginBottom: "10px" }}>
-                  <div style={{ height: "100%", width: `${progress}%`, background: "var(--cyan)", borderRadius: "100px", transition: "width 0.3s ease" }} />
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
+                <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Progress</div>
+                <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '10px' }}>
+                  <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
                 </div>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>{progressLabel}</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{progressLabel}</p>
                 {error && (
-                  <div style={{ marginTop: "10px", background: "rgba(255,80,80,0.07)", border: "1px solid rgba(255,80,80,0.18)", borderRadius: "7px", padding: "10px 12px", fontSize: "12px", color: "#FF8080", lineHeight: "1.55" }}>
+                  <div style={{ marginTop: '10px', background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.18)', borderRadius: '7px', padding: '10px 12px', fontSize: '12px', color: '#FF8080', lineHeight: '1.55' }}>
                     {error}
                   </div>
                 )}
               </div>
 
-              <button type="button" className="btn-primary btn-full" disabled={!canGenerate} onClick={handleGenerate}
-                style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? "pointer" : "not-allowed" }}>
-                {busy ? "Processing…" : limitHit ? "Limit reached — upgrade" : "Generate clean PDF"}
+              <button type="button" className="btn-primary btn-full sanitize-sidebar-generate"
+                disabled={!canGenerate} onClick={handleGenerate}
+                style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed' }}>
+                {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : 'Generate clean PDF'}
               </button>
+
             </aside>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {pagePreviews.length === 0 && (
-                <div style={{ background: "var(--bg-card)", border: "1px dashed var(--border-mid)", borderRadius: "12px", padding: "56px 32px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", fontSize: "14px", textAlign: "center", minHeight: "280px" }}>
-                  {limitHit ? "Daily limit reached. Upgrade to continue." : "Upload a PDF to render preview pages and draw blackout boxes."}
+                <div style={{ background: 'var(--bg-card)', border: '1px dashed var(--border-mid)', borderRadius: '12px', padding: '56px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: '14px', textAlign: 'center', minHeight: '280px' }}>
+                  {limitHit ? 'Daily limit reached. Upgrade to continue.' : 'Upload a PDF to render preview pages and draw blackout boxes.'}
                 </div>
               )}
               {pagePreviews.map((page) => {
                 const rects = pageRectsMap[page.pageNumber] ?? [];
                 return (
-                  <article key={page.pageNumber} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                      <span style={{ fontSize: "10.5px", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase" as const }}>Page {page.pageNumber}</span>
+                  <article key={page.pageNumber} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase' as const }}>Page {page.pageNumber}</span>
                       <button type="button" onClick={() => clearPage(page.pageNumber)}
-                        style={{ fontFamily: "var(--dm-sans, sans-serif)", fontSize: "11px", fontWeight: 500, color: "var(--text-muted)", background: "none", border: "1px solid var(--border)", borderRadius: "5px", padding: "4px 10px", cursor: "pointer" }}>
+                        style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 10px', cursor: 'pointer' }}>
                         Clear page
                       </button>
                     </div>
                     <div ref={(node) => { containerRefs.current[page.pageNumber] = node; }}
-                      style={{ position: "relative", userSelect: "none", cursor: "crosshair", lineHeight: 0 }}
+                      style={{ position: 'relative', userSelect: 'none', cursor: 'crosshair', lineHeight: 0 }}
                       onPointerDown={(e) => handlePointerDown(page.pageNumber, e)}
                       onPointerMove={(e) => handlePointerMove(page.pageNumber, e)}
                       onPointerUp={(e) => handlePointerUp(page.pageNumber, e)}>
-                      <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: "100%", display: "block", pointerEvents: "none" }} draggable={false} />
+                      <img src={page.dataUrl} alt={`Page ${page.pageNumber}`} style={{ width: '100%', display: 'block', pointerEvents: 'none' }} draggable={false} />
                       {rects.map((rect, idx) => (
-                        <div key={`${page.pageNumber}-${idx}`} style={{ position: "absolute", background: "#000", opacity: 0.88, ...getRectStyle(rect) }} />
+                        <div key={`${page.pageNumber}-${idx}`} style={{ position: 'absolute', background: '#000', opacity: 0.88, ...getRectStyle(rect) }} />
                       ))}
                       {pointerDraft?.pageNumber === page.pageNumber && liveDraftRect && (
-                        <div style={{ position: "absolute", background: "rgba(0,200,240,0.22)", border: "1.5px solid var(--cyan)", ...getRectStyle(liveDraftRect) }} />
+                        <div style={{ position: 'absolute', background: 'rgba(0,200,240,0.22)', border: '1.5px solid var(--cyan)', ...getRectStyle(liveDraftRect) }} />
                       )}
                     </div>
                   </article>
