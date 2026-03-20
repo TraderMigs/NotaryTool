@@ -90,20 +90,23 @@ function AdminTab() {
   const paidMonthly = users.filter(u => u.plan === 'monthly' && u.status === 'active').length
   const paidYearly = users.filter(u => u.plan === 'yearly' && u.status === 'active').length
   const mrr = (paidMonthly * MONTHLY_PRICE) + (paidYearly * (YEARLY_PRICE / 12))
+  const totalFilesProcessed = users.reduce((s, u) => s + (u.total_sanitizes ?? 0), 0)
+  const totalRevenue = (paidMonthly * MONTHLY_PRICE) + (paidYearly * YEARLY_PRICE)
 
   if (loading) return <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading users…</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* Revenue summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
         {[
           { label: 'Total users', value: users.length },
           { label: 'Free', value: users.filter(u => !u.plan || u.plan === 'free').length },
           { label: 'Monthly paid', value: paidMonthly },
           { label: 'Yearly paid', value: paidYearly },
+          { label: 'Files processed', value: totalFilesProcessed },
           { label: 'MRR', value: `$${mrr.toFixed(2)}` },
+          { label: 'Total revenue', value: `$${totalRevenue.toFixed(2)}` },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--bg-card)', padding: '18px 16px' }}>
             <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '8px' }}>{s.label}</div>
@@ -112,7 +115,6 @@ function AdminTab() {
         ))}
       </div>
 
-      {/* Controls */}
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           className="field-input"
@@ -127,7 +129,6 @@ function AdminTab() {
         {msg && <span style={{ fontSize: '12px', color: 'var(--cyan)', fontWeight: 500 }}>{msg}</span>}
       </div>
 
-      {/* User table */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.7fr 1.2fr', gap: '0', borderBottom: '1px solid var(--border)', padding: '10px 16px', minWidth: '600px' }}>
           {['Email', 'Plan', 'Status', 'Uses', 'Override'].map(h => (
@@ -278,7 +279,6 @@ function AccountInner() {
         Your workspace
       </h1>
 
-      {/* Tabs — admin tab only visible to owner */}
       <div className="account-tabs">
         <button type="button" className={`account-tab ${activeTab === 'account' ? 'active' : ''}`} onClick={() => setActiveTab('account')}>
           Account
@@ -293,7 +293,6 @@ function AccountInner() {
         )}
       </div>
 
-      {/* ── Account Tab ─────────────────── */}
       {activeTab === 'account' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
@@ -318,7 +317,6 @@ function AccountInner() {
         </div>
       )}
 
-      {/* ── Billing Tab ─────────────────── */}
       {activeTab === 'billing' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '620px' }}>
           {!isPaid && !isOwner && (
@@ -366,7 +364,6 @@ function AccountInner() {
         </div>
       )}
 
-      {/* ── Admin Tab (owner only) ───────── */}
       {activeTab === 'admin' && isOwner && <AdminTab />}
 
     </div>
