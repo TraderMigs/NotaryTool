@@ -24,14 +24,19 @@ export default function DashboardPage() {
       const ownerCheck = user.email === 'infiniappsofficial@gmail.com'
       setIsOwner(ownerCheck)
 
-      const { data: planRow } = await supabase!.from('user_plans').select('plan,status').eq('user_id', user.id).single()
-      const paid = ownerCheck || ((planRow?.plan === 'monthly' || planRow?.plan === 'yearly') && planRow?.status === 'active')
-      setIsPaid(paid)
-
-      if (!ownerCheck && !paid) {
-        const today = new Date().toISOString().split('T')[0]
-        const { data: countRow } = await supabase!.from('daily_sanitize_counts').select('count').eq('user_id', user.id).eq('date', today).single()
-        setTodayCount(countRow?.count ?? 0)
+      // Use server-side status endpoint — bypasses RLS, always accurate
+      try {
+        const token = data.session.access_token
+        const res = await fetch('/api/usage/status', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const status = await res.json()
+          setIsPaid(status.paid ?? false)
+          setTodayCount(status.todayCount ?? 0)
+        }
+      } catch {
+        // fallback: leave as free
       }
 
       setStats(readDashboardStats())
