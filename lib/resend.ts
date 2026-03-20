@@ -1,9 +1,15 @@
 import { Resend } from 'resend'
 
 // Server-side only — never import in client components
-const resend = new Resend(process.env.RESEND_API_KEY ?? '')
+// Lazy: instantiated inside each function so build-time missing env var does not throw
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) throw new Error('RESEND_API_KEY is not set.')
+  return new Resend(key)
+}
 
 export async function sendWelcomeEmail(email: string) {
+  const resend = getResend()
   await resend.emails.send({
     from: 'Specterfy <no-reply@specterfy.com>',
     to: email,
@@ -30,6 +36,7 @@ export async function sendWelcomeEmail(email: string) {
 }
 
 export async function sendPasswordResetEmail(email: string, resetLink: string) {
+  const resend = getResend()
   await resend.emails.send({
     from: 'Specterfy <no-reply@specterfy.com>',
     to: email,
@@ -54,6 +61,7 @@ export async function sendPasswordResetEmail(email: string, resetLink: string) {
 }
 
 export async function sendPaymentConfirmEmail(email: string, plan: string) {
+  const resend = getResend()
   const planLabel = plan === 'yearly' ? 'Yearly ($89/yr)' : 'Monthly ($9.97/mo)'
   await resend.emails.send({
     from: 'Specterfy <no-reply@specterfy.com>',

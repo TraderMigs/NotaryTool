@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe, STRIPE_PRICES, isOwner } from '@/lib/stripe'
+import { stripe, getStripePrices, isOwner } from '@/lib/stripe'
 import { createServerClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server error.' }, { status: 500 })
     }
 
-    // Get the current user from the auth header
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
 
@@ -29,19 +28,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
     }
 
-    // Owner never pays
     if (isOwner(user.email)) {
       return NextResponse.json({ error: 'Owner account has lifetime access.' }, { status: 400 })
     }
 
-    const priceId = STRIPE_PRICES[plan]
+    const prices = getStripePrices()
+    const priceId = prices[plan]
     if (!priceId) {
       return NextResponse.json({ error: 'Price not configured.' }, { status: 500 })
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://specterfy.com'
 
-    const session = await stripe.checkout.sessions.create({
+    const stripeClient = stripe()
+    const session = await stripeClient.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: user.email,

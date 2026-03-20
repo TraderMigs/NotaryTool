@@ -4,7 +4,6 @@ import { createServerClient } from '@/lib/supabase'
 import { sendPaymentConfirmEmail } from '@/lib/resend'
 import Stripe from 'stripe'
 
-// Stripe requires raw body for webhook signature verification
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
@@ -18,7 +17,8 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event
 
   try {
-    event = stripe.webhooks.constructEvent(
+    const stripeClient = stripe()
+    event = stripeClient.webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET ?? ''
@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
 
-      // ── Checkout completed — activate subscription ────────────────
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const userId = session.metadata?.user_id
@@ -60,7 +59,6 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      // ── Payment succeeded — keep subscription active ──────────────
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
         const subId = invoice.subscription as string
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      // ── Payment failed — mark as past_due ────────────────────────
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         const subId = invoice.subscription as string
@@ -84,7 +81,6 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      // ── Subscription cancelled — revert to free ──────────────────
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription
         await supabase.from('user_plans')
@@ -94,7 +90,6 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        // Unhandled event — not an error
         break
     }
   } catch (err) {
