@@ -101,6 +101,29 @@ function UsersTab({ users, totals, onReload, msg, setMsg }: {
     a.click()
   }
 
+  async function exportAllData() {
+    setMsg('Preparing export…')
+    const allUserData: any[] = []
+    for (const u of users) {
+      const json = await adminCall({ action: 'download_user_data', userId: u.id, email: u.email })
+      if (json.data) allUserData.push(json.data)
+    }
+    const exportPayload = {
+      exported_at: new Date().toISOString(),
+      total_users: users.length,
+      total_pages: totals.total_pages,
+      total_value_dollars: (totals.total_value_cents / 100).toFixed(2),
+      users: allUserData,
+    }
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `specterfy-all-data-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    setMsg('Export complete')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
   const totalValueDollars = (totals.total_value_cents / 100).toFixed(2)
 
   return (
@@ -138,6 +161,7 @@ function UsersTab({ users, totals, onReload, msg, setMsg }: {
           {hideEmails ? '👁 Show emails' : '🙈 Hide emails'}
         </button>
         <button type="button" className="btn-secondary" onClick={exportCSV} style={{ fontSize: '13px', padding: '9px 16px' }}>Export CSV</button>
+        <button type="button" className="btn-secondary" onClick={exportAllData} style={{ fontSize: '13px', padding: '9px 16px' }}>Export all data</button>
         {msg && <span style={{ fontSize: '12px', color: 'var(--cyan)', fontWeight: 500 }}>{msg}</span>}
       </div>
 
