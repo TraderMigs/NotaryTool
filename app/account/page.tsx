@@ -512,9 +512,19 @@ function AccountInner() {
       setEmail(user.email ?? '')
       const ownerCheck = user.email === OWNER_EMAIL
       setIsOwner(ownerCheck)
-      if (supabase) {
-        const { data } = await supabase.from('user_plans').select('plan, status, stripe_subscription_id').eq('user_id', user.id).single()
-        setPlanRow(data ?? null)
+      // Use server-side endpoint — bypasses RLS, always accurate
+      try {
+        const session = await supabase!.auth.getSession()
+        const token = session.data.session?.access_token ?? ''
+        const res = await fetch('/api/usage/plan', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const json = await res.json()
+          setPlanRow(json.planRow ?? null)
+        }
+      } catch {
+        // fallback: leave planRow null (shows free)
       }
       if (ownerCheck) await loadAdminData()
       setLoading(false)
