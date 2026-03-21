@@ -595,27 +595,23 @@ export default function SanitizePage() {
             <span className="sanitize-fullscreen-title">{fileName}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <span style={{ fontSize: '11px', color: 'var(--text-faint)' }}>{totalRedactions} box{totalRedactions !== 1 ? 'es' : ''}</span>
-              <button
-                type="button"
-                onClick={() => setScrollLocked(l => !l)}
-                style={{
-                  fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '11px', fontWeight: 600,
-                  padding: '5px 10px', borderRadius: '5px', cursor: 'pointer',
-                  background: scrollLocked ? 'var(--cyan)' : 'none',
-                  border: scrollLocked ? 'none' : '1px solid var(--border)',
-                  color: scrollLocked ? '#020C14' : 'var(--text-muted)', transition: 'all 0.15s',
-                }}
-              >
-                {scrollLocked ? '🔒 Drawing' : '🔓 Scroll'}
-              </button>
             </div>
           </div>
 
-          <div style={{ padding: '8px 16px', background: scrollLocked ? 'rgba(0,200,240,0.09)' : 'rgba(255,160,0,0.06)', borderBottom: scrollLocked ? '1px solid var(--border-cyan)' : '1px solid rgba(255,160,0,0.2)', transition: 'all 0.2s' }}>
-            <p style={{ fontSize: '12px', color: scrollLocked ? 'var(--cyan-dim)' : 'rgba(255,200,80,0.8)', margin: 0, textAlign: 'center' }}>
-              {scrollLocked ? 'Drawing mode — tap and drag to draw redaction boxes' : 'Scroll mode — tap 🔒 Drawing to start redacting'}
+          <button
+            type="button"
+            onClick={() => setScrollLocked(l => !l)}
+            style={{
+              width: '100%', padding: '10px 16px', border: 'none', cursor: 'pointer',
+              background: scrollLocked ? 'rgba(0,200,240,0.09)' : 'rgba(255,160,0,0.06)',
+              borderBottom: scrollLocked ? '1px solid var(--border-cyan)' : '1px solid rgba(255,160,0,0.2)',
+              transition: 'all 0.2s', display: 'block',
+            }}
+          >
+            <p style={{ fontSize: '13px', fontWeight: 600, color: scrollLocked ? 'var(--cyan-dim)' : 'rgba(255,200,80,0.9)', margin: 0, textAlign: 'center' as const, fontFamily: 'var(--dm-sans, sans-serif)' }}>
+              {scrollLocked ? '🔒 Drawing mode — tap here to scroll' : '🔓 Scroll mode — tap here to start redacting'}
             </p>
-          </div>
+          </button>
 
           <div className="sanitize-fullscreen-scroll" style={{ padding: '12px' }}>
             {pagePreviews.length === 0 ? (
@@ -625,27 +621,30 @@ export default function SanitizePage() {
             ) : renderPages(true)}
           </div>
 
-          <div className="sanitize-fullscreen-footer">
-            {/* Running total strip in fullscreen */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,200,240,0.08)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 10px', flexShrink: 0 }}>
-              <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--cyan-dim)' }}>Fee</span>
-              <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '14px', fontWeight: 700, color: 'var(--cyan)' }}>${feeTotal.toFixed(2)}</span>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '5px' }}>
-                <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
+          <div className="sanitize-fullscreen-footer" style={{ flexDirection: 'column', gap: '8px', padding: '10px 12px' }}>
+            {/* Top row: fee pill + progress + undo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(0,200,240,0.08)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 10px', flexShrink: 0 }}>
+                <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--cyan-dim)' }}>Fee</span>
+                <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '14px', fontWeight: 700, color: 'var(--cyan)' }}>${feeTotal.toFixed(2)}</span>
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{progressLabel}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ height: '3px', background: 'var(--border)', borderRadius: '100px', overflow: 'hidden', marginBottom: '4px' }}>
+                  <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cyan)', borderRadius: '100px', transition: 'width 0.3s ease' }} />
+                </div>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{progressLabel}</span>
+              </div>
+              <button
+                type="button" onClick={undoLast}
+                disabled={rectsHistoryRef.current.length === 0 || busy}
+                style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', cursor: rectsHistoryRef.current.length > 0 ? 'pointer' : 'not-allowed', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', opacity: rectsHistoryRef.current.length > 0 ? 1 : 0.35, flexShrink: 0, transition: 'all 0.15s' }}>
+                ↩ Undo
+              </button>
             </div>
-            <button
-              type="button" onClick={undoLast}
-              disabled={rectsHistoryRef.current.length === 0 || busy}
-              style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600, padding: '9px 14px', borderRadius: '6px', cursor: rectsHistoryRef.current.length > 0 ? 'pointer' : 'not-allowed', background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', opacity: rectsHistoryRef.current.length > 0 ? 1 : 0.35, flexShrink: 0, transition: 'all 0.15s' }}>
-              ↩ Undo
-            </button>
+            {/* Bottom row: Generate full width */}
             <button type="button" className="btn-primary"
               disabled={!canGenerate} onClick={handleGenerate}
-              style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', fontSize: '13px', padding: '10px 20px', flexShrink: 0 }}>
+              style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', fontSize: '14px', padding: '12px', width: '100%', textAlign: 'center' as const }}>
               {busy ? 'Processing…' : 'Generate clean PDF'}
             </button>
           </div>
@@ -755,11 +754,6 @@ export default function SanitizePage() {
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{progressLabel}</p>
               </div>
             )}
-            <button type="button" className="btn-primary btn-full"
-              disabled={!canGenerate} onClick={handleGenerate}
-              style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', padding: '14px', fontSize: '15px' }}>
-              {busy ? 'Processing…' : limitHit ? 'Limit reached — upgrade' : canGenerate ? 'Generate clean PDF' : 'Upload a PDF to begin'}
-            </button>
           </div>
 
           {/* ── DESKTOP TWO-COL ── */}
