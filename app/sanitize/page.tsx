@@ -39,6 +39,179 @@ function getNormCoords(el: HTMLElement, clientX: number, clientY: number) {
   };
 }
 
+// ── Fee Calculator — top-level component, never remounts on parent re-render ──
+type FeeCalcProps = {
+  feeOpen: boolean;
+  setFeeOpen: (v: boolean) => void;
+  baseFee: string;
+  setBaseFee: (v: string) => void;
+  signerCount: number;
+  setSignerCount: (fn: (n: number) => number) => void;
+  additionalSignerFee: string;
+  setAdditionalSignerFee: (v: string) => void;
+  addonFee: string;
+  setAddonFee: (v: string) => void;
+  ronEnabled: boolean;
+  setRonEnabled: (fn: (v: boolean) => boolean) => void;
+  feeTotal: number;
+  onPrintReceipt: () => void;
+}
+
+function FeeCalculatorCard({
+  feeOpen, setFeeOpen,
+  baseFee, setBaseFee,
+  signerCount, setSignerCount,
+  additionalSignerFee, setAdditionalSignerFee,
+  addonFee, setAddonFee,
+  ronEnabled, setRonEnabled,
+  feeTotal, onPrintReceipt,
+}: FeeCalcProps) {
+  const inputStyle = {
+    width: '70px',
+    background: 'var(--bg-base)',
+    border: '1px solid var(--border)',
+    borderRadius: '6px',
+    padding: '5px 8px',
+    fontSize: '13px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--dm-sans, sans-serif)',
+    textAlign: 'right' as const,
+  };
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-cyan)', borderRadius: '10px', overflow: 'hidden' }}>
+      <button
+        type="button"
+        onClick={() => setFeeOpen(!feeOpen)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: 'var(--dm-sans, sans-serif)',
+        }}
+      >
+        <span style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)' }}>
+          Fee Calculator
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '16px', fontWeight: 700, color: 'var(--cyan)', letterSpacing: '-0.01em' }}>
+            ${feeTotal.toFixed(2)}
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-faint)', transform: feeOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
+        </div>
+      </button>
+
+      {feeOpen && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+          {/* Base fee */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Base fee (1st signer)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={baseFee}
+                onChange={e => setBaseFee(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Signer count */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Total signers</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={() => setSignerCount(n => Math.max(1, n - 1))}
+                style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--dm-sans, sans-serif)' }}>−</button>
+              <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', minWidth: '20px', textAlign: 'center' as const }}>{signerCount}</span>
+              <button type="button" onClick={() => setSignerCount(n => n + 1)}
+                style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--dm-sans, sans-serif)' }}>+</button>
+            </div>
+          </div>
+
+          {/* Additional signer fee — only if >1 */}
+          {signerCount > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingLeft: '10px', borderLeft: '2px solid var(--border-cyan)' }}>
+              <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Each additional signer</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={additionalSignerFee}
+                  onChange={e => setAdditionalSignerFee(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Add-on fees */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Add-ons (travel / printing)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={addonFee}
+                onChange={e => setAddonFee(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* RON toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Remote / electronic (+$25)</label>
+            <button
+              type="button"
+              onClick={() => setRonEnabled(v => !v)}
+              style={{
+                width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
+                background: ronEnabled ? 'var(--cyan)' : 'var(--border-mid)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: '3px',
+                left: ronEnabled ? '21px' : '3px',
+                width: '16px', height: '16px', borderRadius: '50%',
+                background: '#fff', transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
+
+          {/* Total */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Total due</span>
+            <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '22px', fontWeight: 700, color: 'var(--cyan)', letterSpacing: '-0.02em' }}>${feeTotal.toFixed(2)}</span>
+          </div>
+
+          {/* Print receipt */}
+          <button
+            type="button"
+            onClick={onPrintReceipt}
+            style={{
+              fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600,
+              padding: '9px 14px', borderRadius: '7px', cursor: 'pointer',
+              background: 'rgba(0,200,240,0.07)', border: '1px solid var(--border-cyan)',
+              color: 'var(--cyan-dim)', width: '100%', textAlign: 'center' as const,
+              transition: 'background 0.15s',
+            }}
+          >
+            Print fee receipt
+          </button>
+          <p style={{ fontSize: '10.5px', color: 'var(--text-faint)', margin: 0, lineHeight: 1.5 }}>
+            Session-only. Receipt is not saved or transmitted.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SanitizePage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
@@ -51,7 +224,6 @@ export default function SanitizePage() {
   const [limitHit, setLimitHit] = useState(false);
   const [businessName, setBusinessName] = useState('');
 
-  // Mobile fullscreen + scroll lock
   const [mobileFullscreen, setMobileFullscreen] = useState(false);
   const [scrollLocked, setScrollLocked] = useState(false);
 
@@ -70,7 +242,7 @@ export default function SanitizePage() {
   const containerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const drawingRef = useRef<PointerDraft>(null);
 
-  // ── Fee Calculator State ──────────────────────────────────
+  // ── Fee Calculator State (all lifted here, passed as props) ──
   const [feeOpen, setFeeOpen] = useState(false);
   const [baseFee, setBaseFee] = useState<string>("5");
   const [signerCount, setSignerCount] = useState<number>(1);
@@ -94,9 +266,10 @@ export default function SanitizePage() {
     const addon = parseFloat(addonFee) || 0;
     const additionalSigners = Math.max(0, signerCount - 1);
     const ron = ronEnabled ? RON_FEE : 0;
+    const computedTotal = base + (additionalSigners * addlFee) + addon + ron;
     const now = new Date().toLocaleString();
+    const displayName = businessName.trim() || email || 'Notary';
 
-    const displayName = businessName.trim() || email || 'Notary'
     const lines: string[] = [
       `${displayName} — FEE RECEIPT`,
       "Session-only. Not stored. Print before closing.",
@@ -109,7 +282,7 @@ export default function SanitizePage() {
       `Primary notarial act (1 signer): $${base.toFixed(2)}`,
     ];
     if (additionalSigners > 0) {
-      lines.push(`Additional signers (${additionalSigners} × $${addlFee.toFixed(2)}): $${(additionalSigners * addlFee).toFixed(2)}`);
+      lines.push(`Additional signers (${additionalSigners} x $${addlFee.toFixed(2)}): $${(additionalSigners * addlFee).toFixed(2)}`);
     }
     if (addon > 0) {
       lines.push(`Add-on fees (travel/printing/other): $${addon.toFixed(2)}`);
@@ -118,18 +291,17 @@ export default function SanitizePage() {
       lines.push(`Remote/electronic notarization surcharge: $${RON_FEE.toFixed(2)}`);
     }
     lines.push("─────────────────────────────────");
-    lines.push(`TOTAL DUE: $${feeTotal.toFixed(2)}`);
+    lines.push(`TOTAL DUE: $${computedTotal.toFixed(2)}`);
     lines.push("");
     lines.push("Session-only — not saved or transmitted.");
 
     const printContent = `
-      <html><head><title>Fee Receipt — Specterfy</title>
+      <html><head><title>Fee Receipt</title>
       <style>
         body { font-family: monospace; font-size: 14px; padding: 40px; color: #111; background: #fff; max-width: 480px; margin: 0 auto; }
         h2 { font-family: sans-serif; font-size: 18px; margin-bottom: 4px; }
         .sub { font-family: sans-serif; font-size: 12px; color: #666; margin-bottom: 24px; }
         pre { white-space: pre-wrap; line-height: 1.7; }
-        .total { font-size: 16px; font-weight: bold; margin-top: 8px; }
         @media print { body { padding: 20px; } }
       </style></head>
       <body>
@@ -367,139 +539,17 @@ export default function SanitizePage() {
   const remainingToday = Math.max(0, 5 - todayCount);
   const showUpsellNudge = !isPaid && !isOwner && !limitHit && todayCount >= 4 && authChecked;
 
-  // ── Fee Calculator Card (shared desktop + mobile) ─────────
-  function FeeCalculatorCard() {
-    return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-cyan)', borderRadius: '10px', overflow: 'hidden' }}>
-        {/* Header / toggle */}
-        <button
-          type="button"
-          onClick={() => setFeeOpen(o => !o)}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer',
-            fontFamily: 'var(--dm-sans, sans-serif)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)' }}>Fee Calculator</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '16px', fontWeight: 700, color: 'var(--cyan)', letterSpacing: '-0.01em' }}>
-              ${feeTotal.toFixed(2)}
-            </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-faint)', transform: feeOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
-          </div>
-        </button>
-
-        {feeOpen && (
-          <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-            {/* Base fee */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Base fee (1st signer)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={baseFee}
-                  onChange={e => setBaseFee(e.target.value)}
-                  style={{ width: '70px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px 8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--dm-sans, sans-serif)', textAlign: 'right' as const }}
-                />
-              </div>
-            </div>
-
-            {/* Signer count */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Total signers</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button type="button" onClick={() => setSignerCount(n => Math.max(1, n - 1))}
-                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--dm-sans, sans-serif)' }}>−</button>
-                <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', minWidth: '20px', textAlign: 'center' as const }}>{signerCount}</span>
-                <button type="button" onClick={() => setSignerCount(n => n + 1)}
-                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--dm-sans, sans-serif)' }}>+</button>
-              </div>
-            </div>
-
-            {/* Additional signer fee — only show if >1 signer */}
-            {signerCount > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingLeft: '10px', borderLeft: '2px solid var(--border-cyan)' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Each additional signer</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={additionalSignerFee}
-                    onChange={e => setAdditionalSignerFee(e.target.value)}
-                    style={{ width: '70px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px 8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--dm-sans, sans-serif)', textAlign: 'right' as const }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Add-on fees */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Add-ons (travel / printing)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--text-faint)' }}>$</span>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={addonFee}
-                  onChange={e => setAddonFee(e.target.value)}
-                  style={{ width: '70px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px 8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--dm-sans, sans-serif)', textAlign: 'right' as const }}
-                />
-              </div>
-            </div>
-
-            {/* RON toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>Remote / electronic (+$25)</label>
-              <button
-                type="button"
-                onClick={() => setRonEnabled(v => !v)}
-                style={{
-                  width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
-                  background: ronEnabled ? 'var(--cyan)' : 'var(--border-mid)',
-                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-                }}
-              >
-                <span style={{
-                  position: 'absolute', top: '3px',
-                  left: ronEnabled ? '21px' : '3px',
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  background: '#fff', transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
-
-            {/* Divider + Total */}
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Total due</span>
-              <span style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '22px', fontWeight: 700, color: 'var(--cyan)', letterSpacing: '-0.02em' }}>${feeTotal.toFixed(2)}</span>
-            </div>
-
-            {/* Export receipt button */}
-            <button
-              type="button"
-              onClick={handleExportReceipt}
-              style={{
-                fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '12px', fontWeight: 600,
-                padding: '9px 14px', borderRadius: '7px', cursor: 'pointer',
-                background: 'rgba(0,200,240,0.07)', border: '1px solid var(--border-cyan)',
-                color: 'var(--cyan-dim)', width: '100%', textAlign: 'center' as const,
-                transition: 'background 0.15s',
-              }}
-            >
-              Print fee receipt
-            </button>
-            <p style={{ fontSize: '10.5px', color: 'var(--text-faint)', margin: 0, lineHeight: 1.5 }}>
-              Session-only. Receipt is not saved or transmitted.
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  }
+  // Shared props for FeeCalculatorCard
+  const feeCalcProps: FeeCalcProps = {
+    feeOpen, setFeeOpen,
+    baseFee, setBaseFee,
+    signerCount, setSignerCount,
+    additionalSignerFee, setAdditionalSignerFee,
+    addonFee, setAddonFee,
+    ronEnabled, setRonEnabled,
+    feeTotal,
+    onPrintReceipt: handleExportReceipt,
+  };
 
   function renderPages(inFullscreen = false) {
     return pagePreviews.map((page) => {
@@ -622,7 +672,6 @@ export default function SanitizePage() {
           </div>
 
           <div className="sanitize-fullscreen-footer" style={{ flexDirection: 'column', gap: '8px', padding: '10px 12px' }}>
-            {/* Top row: fee pill + progress + undo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(0,200,240,0.08)', border: '1px solid var(--border-cyan)', borderRadius: '6px', padding: '5px 10px', flexShrink: 0 }}>
                 <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--cyan-dim)' }}>Fee</span>
@@ -641,7 +690,6 @@ export default function SanitizePage() {
                 ↩ Undo
               </button>
             </div>
-            {/* Bottom row: Generate full width */}
             <button type="button" className="btn-primary"
               disabled={!canGenerate} onClick={handleGenerate}
               style={{ opacity: canGenerate ? 1 : 0.38, cursor: canGenerate ? 'pointer' : 'not-allowed', fontSize: '14px', padding: '12px', width: '100%', textAlign: 'center' as const }}>
@@ -727,7 +775,7 @@ export default function SanitizePage() {
             </div>
 
             {/* Fee calculator — mobile */}
-            <FeeCalculatorCard />
+            <FeeCalculatorCard {...feeCalcProps} />
 
             {pagePreviews.length > 0 && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
@@ -770,7 +818,6 @@ export default function SanitizePage() {
                 </label>
               </div>
 
-              {/* Live totals — updated to show fee total */}
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Live totals</div>
                 {[{ val: pageCount, key: 'Pages' }, { val: totalRedactions, key: 'Redactions' }, { val: `$${feeTotal.toFixed(2)}`, key: 'Fee total' }].map((s, i, arr) => (
@@ -782,7 +829,7 @@ export default function SanitizePage() {
               </div>
 
               {/* Fee calculator — desktop sidebar */}
-              <FeeCalculatorCard />
+              <FeeCalculatorCard {...feeCalcProps} />
 
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px 16px' }}>
                 <div style={{ fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '12px' }}>Progress</div>
