@@ -38,7 +38,6 @@ export function getDefaultStats(): DashboardStats {
 
 function safeJsonParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
-
   try {
     return JSON.parse(raw) as T;
   } catch {
@@ -50,13 +49,36 @@ export function createSessionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function saveReviewSession(session: ReviewSession) {
   if (!isBrowser()) return;
-  window.localStorage.setItem(REVIEW_SESSION_KEY, JSON.stringify(session));
+  // Always clear the old session first to free up quota before writing new one
+  try {
+    window.localStorage.removeItem(REVIEW_SESSION_KEY);
+    window.localStorage.setItem(REVIEW_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // Quota exceeded even after clearing — clear everything non-essential and retry once
+    try {
+      window.localStorage.removeItem(REVIEW_SESSION_KEY);
+      window.localStorage.removeItem(PROCESSED_SESSION_IDS_KEY);
+      window.localStorage.setItem(REVIEW_SESSION_KEY, JSON.stringify(session));
+    } catch {
+      // If it still fails (e.g. very large PDF on low-quota mobile browser),
+      // store a metadata-only version so the review page still loads with info
+      try {
+        const fallback: ReviewSession = {
+          ...session,
+          cleanPdfBase64: "", // drop the large base64 blob
+        };
+        window.localStorage.removeItem(REVIEW_SESSION_KEY);
+        window.localStorage.setItem(REVIEW_SESSION_KEY, JSON.stringify(fallback));
+      } catch {
+        // Complete failure — storage is unavailable, session just won't persist
+      }
+    }
+  }
 }
 
 export function getReviewSession(): ReviewSession | null {
@@ -95,7 +117,11 @@ export function readDashboardStats(): DashboardStats {
 
 export function saveDashboardStats(stats: DashboardStats) {
   if (!isBrowser()) return;
-  window.localStorage.setItem(DASHBOARD_STATS_KEY, JSON.stringify(stats));
+  try {
+    window.localStorage.setItem(DASHBOARD_STATS_KEY, JSON.stringify(stats));
+  } catch {
+    // Non-critical — dashboard stats just won't update this session
+  }
 }
 
 function readProcessedSessionIds(): string[] {
@@ -111,7 +137,11 @@ function readProcessedSessionIds(): string[] {
 
 function saveProcessedSessionIds(ids: string[]) {
   if (!isBrowser()) return;
-  window.localStorage.setItem(PROCESSED_SESSION_IDS_KEY, JSON.stringify(ids));
+  try {
+    window.localStorage.setItem(PROCESSED_SESSION_IDS_KEY, JSON.stringify(ids));
+  } catch {
+    // Non-critical
+  }
 }
 
 export function hasSessionBeenRecorded(sessionId: string) {
