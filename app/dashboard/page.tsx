@@ -111,8 +111,8 @@ export default function DashboardPage() {
               { label: 'Pages', value: stats.totalPages, desc: 'Pages processed' },
               { label: 'Redactions', value: stats.totalRedactions, desc: 'Blackout boxes applied' },
             ].map((s) => (
-              <div key={s.label} style={{ background: 'var(--bg-card)', padding: '26px' }}>
-                <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '10px' }}>{s.label}</div>
+              <div key={s.label} style={{ background: 'var(--bg-card)', padding: '26px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.13em', textTransform: 'uppercase' as const, color: 'var(--cyan)', marginBottom: '10px', minHeight: '14px' }}>{s.label}</div>
                 <div style={{ fontFamily: 'var(--dm-sans, sans-serif)', fontSize: '36px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--text-primary)', lineHeight: 1, marginBottom: '6px' }}>{s.value}</div>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>{s.desc}</p>
               </div>
