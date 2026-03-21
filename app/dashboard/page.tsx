@@ -127,7 +127,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '280px' }}>
-              Simple $5/page estimate. Browser-side only. Carries no legal weight.
+              Based on your fee calculator settings. Browser-side only. Carries no legal weight.
             </p>
           </div>
 
