@@ -525,7 +525,7 @@ export default function SanitizePage() {
         pageCount: result.pageCount,
         redactionCount: result.redactionCount,
         createdAt: new Date().toISOString(),
-        estimatedWitnessFeesFound: result.pageCount * 5,
+        estimatedWitnessFeesFound: feeTotal,
         cleanPdfBase64: result.base64
       });
       window.location.href = "/review";
